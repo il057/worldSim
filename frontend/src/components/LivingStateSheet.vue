@@ -148,11 +148,50 @@
           :key="npc.id"
           class="npc-item neu-flat-sm"
         >
+          <!-- 第一行：NPC 姓名与关系类型 -->
           <div class="npc-header">
             <span class="npc-name">{{ npc.npc_name }}</span>
-            <span class="npc-relation">{{ npc.relation_type }} (好感: {{ npc.affinity }})</span>
+            <span class="npc-relation-badge neu-flat-xs">{{ npc.relation_type }}</span>
           </div>
-          <p class="npc-summary">{{ npc.summary }}</p>
+
+          <!-- 第二行：好感度以进度条显示 -->
+          <div class="npc-affinity-row">
+            <div class="affinity-meta">
+              <span class="affinity-title">
+                <Icon icon="material-symbols:favorite" class="affinity-icon" />
+                好感度
+              </span>
+              <span class="affinity-val">{{ npc.affinity }} / 100</span>
+            </div>
+            <div class="affinity-bar-track neu-inset-xs">
+              <div
+                class="affinity-bar-fill"
+                :style="{
+                  width: `${Math.min(100, Math.max(0, npc.affinity))}%`,
+                  backgroundColor: getAffinityColor(npc.affinity)
+                }"
+              ></div>
+            </div>
+          </div>
+
+          <!-- 第三行：客观人设背景与特殊样式的【对该角色的态度与羁绊】 -->
+          <div class="npc-content-body">
+            <p v-if="parseNpcSummary(npc.summary).background" class="npc-background">
+              {{ parseNpcSummary(npc.summary).background }}
+            </p>
+            <div
+              v-if="parseNpcSummary(npc.summary).attitude"
+              class="npc-attitude-card neu-inset-xs"
+            >
+              <div class="attitude-header">
+                <Icon icon="material-symbols:handshake" class="attitude-icon" />
+                <span class="attitude-title">对该角色的态度与羁绊</span>
+              </div>
+              <p class="attitude-text">
+                {{ parseNpcSummary(npc.summary).attitude }}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </NeuCard>
@@ -178,6 +217,36 @@ const isPersonaExpanded = ref(false)
 const isLongPersona = computed(() => {
   return (props.character?.persona_summary?.length || 0) > 180
 })
+
+function parseNpcSummary(summary: string | undefined): { background: string; attitude: string } {
+  if (!summary) return { background: '', attitude: '' }
+  const raw = summary.trim()
+  const match = raw.split(/【对该角色的态度与羁绊】[：:]?\s*/)
+  if (match.length >= 2) {
+    return {
+      background: match[0].trim(),
+      attitude: match.slice(1).join('【对该角色的态度与羁绊】：').trim(),
+    }
+  }
+  const matchAlt = raw.split(/【态度与羁绊】[：:]?\s*/)
+  if (matchAlt.length >= 2) {
+    return {
+      background: matchAlt[0].trim(),
+      attitude: matchAlt.slice(1).join('【态度与羁绊】：').trim(),
+    }
+  }
+  return {
+    background: raw,
+    attitude: '',
+  }
+}
+
+function getAffinityColor(affinity: number): string {
+  if (affinity >= 70) return 'var(--neu-accent)'
+  if (affinity >= 50) return 'var(--neu-success)'
+  if (affinity >= 30) return 'var(--neu-warning)'
+  return 'var(--neu-danger)'
+}
 
 const inventory = computed(() => props.state?.inventory || [])
 const activeGoals = computed(() => props.state?.active_goals || [])
@@ -485,32 +554,134 @@ const getStaminaColor = (val: number) => {
 }
 
 .npc-item {
-  padding: 0.6rem 0.75rem;
+  padding: 0.75rem 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.5rem;
+  border-radius: var(--neu-radius-sm, 8px);
 }
 
 .npc-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.8rem;
+  gap: 0.5rem;
 }
 
 .npc-name {
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   color: var(--neu-text-primary);
 }
 
-.npc-relation {
+.npc-relation-badge {
   font-size: 0.725rem;
+  color: var(--neu-accent);
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--neu-base);
+  box-shadow: 2px 2px 4px var(--neu-shadow-dark), -2px -2px 4px var(--neu-shadow-light);
+  white-space: nowrap;
+}
+
+/* 第二行：好感度进度条 */
+.npc-affinity-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.affinity-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.725rem;
+}
+
+.affinity-title {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--neu-text-secondary);
+  font-weight: 500;
+}
+
+.affinity-icon {
+  font-size: 0.85rem;
   color: var(--neu-accent);
 }
 
-.npc-summary {
-  font-size: 0.75rem;
+.affinity-val {
+  font-weight: 600;
+  color: var(--neu-text-primary);
+  font-family: monospace;
+}
+
+.affinity-bar-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--neu-base);
+  overflow: hidden;
+  box-shadow: inset 1px 1px 2px var(--neu-shadow-dark), inset -1px -1px 2px var(--neu-shadow-light);
+}
+
+.affinity-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+/* 第三行：人设背景与羁绊特殊展示 */
+.npc-content-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.15rem;
+}
+
+.npc-background {
+  font-size: 0.775rem;
   color: var(--neu-text-secondary);
+  line-height: 1.55;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.npc-attitude-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  background: var(--neu-base);
+  box-shadow: inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light);
+  border-left: 3px solid var(--neu-accent);
+}
+
+.attitude-header {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.725rem;
+  font-weight: 600;
+  color: var(--neu-accent);
+}
+
+.attitude-icon {
+  font-size: 0.85rem;
+}
+
+.attitude-title {
+  letter-spacing: 0.02em;
+}
+
+.attitude-text {
+  font-size: 0.75rem;
+  color: var(--neu-text-primary);
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
 }
 
 .empty-hint {

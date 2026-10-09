@@ -212,6 +212,229 @@ class SimulationService:
             )
 
     @classmethod
+    async def run_step_stream(
+        cls,
+        db: Session,
+        character_id: str,
+        hours: int = 1,
+        forced_incident_prompt: Optional[str] = None,
+        config: Optional[SimulationPromptConfig] = None,
+    ):
+        """
+        单步微步进或突发事件驱动的实时流式生成管线：
+        1. Pass 1 理性世界物理与心理裁决；
+        2. Pass 2 实时流式输出纯文学小说切片（通过异步队列分块吐出）；
+        3. 事务性原子提交并落库；
+        4. 吐出最终完整的 StepTickResponse 数据。
+        """
+        lock = get_character_lock(character_id)
+        async with lock:
+            character = db.query(Character).filter(Character.id == character_id).first()
+            if not character:
+                raise ValueError(f"未找到角色: {character_id}")
+
+            state = db.query(CharacterState).filter(CharacterState.character_id == character_id).first()
+            if not state:
+                raise ValueError(f"未找到角色状态看板: {character_id}")
+
+            try:
+                yield {
+                    "event": "status",
+                    "data": {"stage": "pass1", "message": "Pass 1 正在进行理性世界物理与心理裁决..."}
+                }
+
+                # 1. 执行 Pass 1: 理性裁决
+                delta: ArbitratorDelta = await ArbitratorService.decide_tick(
+                    db=db,
+                    character=character,
+                    state=state,
+                    hours_passed=hours,
+                    forced_incident_prompt=forced_incident_prompt,
+                    config=config,
+                )
+
+                yield {
+                    "event": "pass1_done",
+                    "data": {
+                        "virtual_time": delta.new_virtual_time,
+                        "location": delta.new_location,
+                        "plot_beat": delta.plot_beat,
+                        "is_sleeping": delta.rest_decision.is_sleeping,
+                        "hours_passed": delta.simulated_hours_passed,
+                    }
+                }
+
+                yield {
+                    "event": "status",
+                    "data": {"stage": "pass2", "message": "Pass 2 正在进行纯文学有限视角小说正文撰写..."}
+                }
+
+                # 2. 执行 Pass 2: 纯文学场景切片撰写（带流式队列回调）
+                queue: asyncio.Queue = asyncio.Queue()
+
+                async def chunk_listener(c: str):
+                    await queue.put(c)
+
+                async def background_narrate():
+                    try:
+                        return await StorytellerService.narrate_tick(
+                            db=db,
+                            character=character,
+                            state=state,
+                            delta=delta,
+                            config=config,
+                            on_chunk=chunk_listener,
+                        )
+                    except Exception as err:
+                        await queue.put(err)
+                        raise
+                    finally:
+                        await queue.put(None)
+
+                task = asyncio.create_task(background_narrate())
+
+                while True:
+                    item = await queue.get()
+                    if item is None:
+                        break
+                    if isinstance(item, Exception):
+                        raise item
+                    yield {
+                        "event": "chunk",
+                        "data": {"text": item, "delta": item}
+                    }
+
+                narrative_prose: str = await task
+
+                # 3. 提交持久化
+                _apply_tick_delta(db, character, state, delta)
+                new_log = StoryLog(
+                    character_id=character.id,
+                    tick_index=state.total_ticks,
+                    virtual_time=state.virtual_time,
+                    location=state.location,
+                    plot_beat=delta.plot_beat,
+                    narrative_prose=narrative_prose,
+                    delta_snapshot_json=delta.model_dump_json(),
+                )
+                db.add(new_log)
+                db.commit()
+                db.refresh(state)
+                db.refresh(new_log)
+
+            except Exception as e:
+                db.rollback()
+                logger.error(
+                    f"[流式推演失败·终端报错] 角色 {character_id} 事务回滚: {e}",
+                    exc_info=True,
+                )
+                raise
+
+            # 4. 构建终态视图
+            state_view = CharacterStateView(
+                id=state.id,
+                character_id=state.character_id,
+                virtual_time=state.virtual_time,
+                location=state.location,
+                health=state.health,
+                stamina=state.stamina,
+                is_sleeping=state.is_sleeping,
+                psychological_state=state.psychological_state,
+                inventory=json.loads(state.inventory_json),
+                active_goals=json.loads(state.active_goals_json),
+                completed_goals=json.loads(state.completed_goals_json),
+                total_ticks=state.total_ticks,
+                updated_at=state.updated_at,
+            )
+
+            log_view = StoryLogView(
+                id=new_log.id,
+                character_id=new_log.character_id,
+                tick_index=new_log.tick_index,
+                virtual_time=new_log.virtual_time,
+                location=new_log.location,
+                plot_beat=new_log.plot_beat,
+                narrative_prose=new_log.narrative_prose,
+                delta_snapshot=delta,
+                created_at=new_log.created_at,
+            )
+
+            response = StepTickResponse(
+                character_id=character.id,
+                story_log=log_view,
+                current_state=state_view,
+            )
+
+            yield {
+                "event": "finish",
+                "data": response.model_dump(mode="json")
+            }
+
+    @classmethod
+    async def fast_forward_stream(
+        cls,
+        db: Session,
+        character_id: str,
+        step_type: str = "hour_6",
+        config: Optional[SimulationPromptConfig] = None,
+    ):
+        """阶段快进实时流式输出"""
+        hours = 6 if step_type == "hour_6" else 24
+        async for evt in cls.run_step_stream(db, character_id, hours=hours, config=config):
+            yield evt
+
+    @classmethod
+    async def trigger_incident_stream(
+        cls,
+        db: Session,
+        character_id: str,
+        config: Optional[SimulationPromptConfig] = None,
+    ):
+        """突发事件实时流式输出"""
+        character = db.query(Character).filter(Character.id == character_id).first()
+        state = db.query(CharacterState).filter(CharacterState.character_id == character_id).first()
+        if not character or not state:
+            raise ValueError("角色或状态不存在")
+
+        yield {
+            "event": "status",
+            "data": {"stage": "incident_conceive", "message": "AI 正在构思因果突发事件..."}
+        }
+
+        system_prompt = (
+            "你是一个虚拟世界突发事件（Inciting Incident）构思引擎。\n"
+            "用户按下了【触发突发事件】按钮。请结合角色的身份、核心执念、当前所处物理地点与心理状态，"
+            "自主构思一场突如其来的危机、奇遇或变故（如：仇家尾随堵门、异响预警、机关突发故障、带有密信的飞鸟、"
+            "突降天灾或巡逻队突击搜查）。\n"
+            "用 100~150 字扼要描述此突发变故的客观事实，具有强烈的因果张力。\n"
+            "严禁包含任何 Emoji 图标。"
+        )
+        user_prompt = (
+            f"主角姓名: {character.name} ({character.title})\n"
+            f"核心执念: {character.inner_drive}\n"
+            f"当前时空地点: {state.virtual_time} | {state.location}\n"
+            f"当前状态: {'休眠中' if state.is_sleeping else '清醒活动'} | 心理: {state.psychological_state}\n"
+            f"请构思这场突发变故："
+        )
+
+        incident_beat = await llm_client.chat_completion(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            json_mode=False,
+            temperature=0.85,
+        )
+
+        incident_beat = strip_emojis(incident_beat.strip())
+        logger.info(f"AI 自主构思突发事件: {incident_beat}")
+
+        async for evt in cls.run_step_stream(
+            db, character_id, hours=1, forced_incident_prompt=incident_beat, config=config
+        ):
+            yield evt
+
+    @classmethod
     async def fast_forward(
         cls,
         db: Session,
@@ -383,6 +606,14 @@ class SimulationService:
                 state.active_goals_json = json.dumps(snap.get("active_goals") or [], ensure_ascii=False)
                 state.completed_goals_json = "[]"
                 state.total_ticks = 0
+
+                # 恢复角色基础体征字段
+                if snap.get("gender"):
+                    character.gender = snap.get("gender")
+                if snap.get("birthday"):
+                    character.birthday = snap.get("birthday")
+                if snap.get("appearance"):
+                    character.appearance = snap.get("appearance")
 
                 # 恢复初始社交网络生态：清理推演过程中动态新增的非初始 NPC
                 init_npc_names = set(snap.get("initial_npc_names") or [])

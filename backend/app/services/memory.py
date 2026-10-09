@@ -9,6 +9,36 @@ from app.schemas import CircadianProfile
 logger = logging.getLogger("world_sim.memory")
 
 
+def calculate_dynamic_age(birthday_or_persona: str, current_virtual_time_str: str) -> Optional[int]:
+    """基于虚拟世界当前时间与角色生日或档案，动态计算实时周岁"""
+    import re
+    if not current_virtual_time_str or not birthday_or_persona:
+        return None
+
+    curr_y_m = re.search(r"(\d{4})[年\-]", current_virtual_time_str)
+    if not curr_y_m:
+        return None
+    curr_year = int(curr_y_m.group(1))
+
+    # 优先匹配直接传入的生日格式
+    direct_match = re.search(r"(\d{4})[年\-]", birthday_or_persona)
+    if direct_match:
+        birth_year = int(direct_match.group(1))
+        if 0 < curr_year - birth_year < 200:
+            return curr_year - birth_year
+
+    birth_y_m = re.search(r"(?:诞生时间|生日|出生|诞生)[^\d\n]{0,12}(\d{4})[年\-]", birthday_or_persona)
+    if not birth_y_m:
+        birth_y_m = re.search(r"(\d{4})[年\-]\d{1,2}[月\-]\d{1,2}[日号]?", birthday_or_persona)
+
+    if birth_y_m:
+        birth_year = int(birth_y_m.group(1))
+        if 0 < curr_year - birth_year < 200:
+            return curr_year - birth_year
+
+    return None
+
+
 class MemoryService:
     @staticmethod
     def format_tier1_living_state(character: Character, state: CharacterState) -> str:
@@ -22,10 +52,16 @@ class MemoryService:
         completed_goals = json.loads(state.completed_goals_json) if state.completed_goals_json else []
 
         status_text = "【熟睡休眠中】" if state.is_sleeping else "【清醒活动中】"
+        birthday_str = getattr(character, "birthday", "") or ""
+        dynamic_age = calculate_dynamic_age(birthday_str or character.persona_summary, state.virtual_time)
+        age_info = f" | 动态生理年龄: 实时周岁约 {dynamic_age} 岁 (随世界时间流逝自然增长)" if dynamic_age else ""
+        gender_val = getattr(character, "gender", "") or "保密"
+        appearance_val = getattr(character, "appearance", "") or "无特殊外貌记录"
 
         lines = [
             "=== [Tier 1: Living State Sheet (当前即时生存看板)] ===",
-            f"主角姓名: {character.name} (头衔: {character.title or '无'})",
+            f"主角姓名: {character.name} (头衔: {character.title or '无'}{age_info})",
+            f"生理体征: 性别={gender_val} | 外貌特征={appearance_val}",
             f"虚拟时空: {state.virtual_time} | 当前微观物理地点: {state.location}",
             f"生理指标: 健康值 {state.health}/100 | 精力值 {state.stamina}/100 | 生理状态: {status_text}",
             f"心理情绪: {state.psychological_state}",

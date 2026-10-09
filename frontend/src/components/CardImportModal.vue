@@ -41,6 +41,12 @@
 
       <!-- 步骤 2: 预览与深度可控调整 -->
       <div v-else class="parse-results">
+        <!-- user 替代生态位提示横幅 -->
+        <div v-if="parsedData.user_replacement_hint" class="user-replacement-banner neu-flat-sm">
+          <Icon icon="material-symbols:verified-user" class="hint-icon" />
+          <span>{{ parsedData.user_replacement_hint }}</span>
+        </div>
+
         <!-- 统计摘要与 POV 主角单选 -->
         <div class="pov-section">
           <div class="pov-header">
@@ -50,7 +56,7 @@
               <span v-if="parsedData.is_multi_entity" class="multi-tag neu-flat-sm">多人卡已识别</span>
             </span>
             <span class="meta-hint">
-              共发现 {{ editableEntities.length }} 个候选主角实体，请单选确立主视角
+              共发现 {{ editableEntities.length }} 个候选主角实体，请单选确立主视角（切换可查看各主角专属关系网与状态）
             </span>
           </div>
 
@@ -111,7 +117,7 @@
             @click="activeTab = 'relationships'"
           >
             <Icon icon="material-symbols:group" class="tab-icon" />
-            NPC 关系网 ({{ editableRelationships.length }})
+            NPC 关系网 ({{ (activeEntity?.relationships || []).length }})
           </button>
           <button
             type="button"
@@ -126,6 +132,48 @@
         <!-- 标签页内容 1: 人设与执念 -->
         <div v-show="activeTab === 'persona'" class="tab-content">
           <div v-if="activeEntity" class="form-grid">
+            <!-- 专属头像编辑与更换区域 -->
+            <div class="avatar-edit-section neu-inset-sm">
+              <div class="avatar-preview-box">
+                <img
+                  v-if="activeEntity.avatar_url"
+                  :src="activeEntity.avatar_url"
+                  class="active-avatar-img neu-flat-sm"
+                  alt="avatar"
+                />
+                <div class="avatar-placeholder-large neu-flat-sm" v-else>
+                  <Icon icon="material-symbols:account-circle" class="large-avatar-icon" />
+                </div>
+              </div>
+              <div class="avatar-actions-box">
+                <div class="avatar-actions-title">
+                  <span class="avatar-title-text">推演主角专属头像</span>
+                  <span class="avatar-hint">支持上传自定义角色图片，亦可重置为系统默认占位</span>
+                </div>
+                <div class="avatar-btn-row">
+                  <label class="avatar-upload-btn neu-flat-sm">
+                    <Icon icon="material-symbols:upload" />
+                    更换头像
+                    <input
+                      type="file"
+                      accept="image/*"
+                      class="hidden-file-input"
+                      @change="handleAvatarChange"
+                    />
+                  </label>
+                  <button
+                    v-if="activeEntity.avatar_url"
+                    type="button"
+                    class="avatar-clear-btn"
+                    @click="clearAvatar"
+                  >
+                    <Icon icon="material-symbols:delete" />
+                    使用默认占位
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div class="form-row">
               <div class="form-field">
                 <label>角色姓名</label>
@@ -135,6 +183,23 @@
                 <label>身份头衔 / 称号</label>
                 <input v-model="activeEntity.title" class="neu-input" placeholder="如：九尾天狐 / 特级荣誉顾问" />
               </div>
+            </div>
+
+            <!-- 基础生理档案（性别、生日、外貌） -->
+            <div class="form-row basic-archive-row">
+              <div class="form-field">
+                <label>生理/社会性别</label>
+                <input v-model="activeEntity.gender" class="neu-input" placeholder="如：男 / 女 / 非二元 / 未知" />
+              </div>
+              <div class="form-field">
+                <label>诞生时间 / 生日 (动态推演周岁基岩)</label>
+                <input v-model="activeEntity.birthday" class="neu-input" placeholder="如：2007年3月15日 或 天禧二年五月初三" />
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label>外貌体征与常驻装束</label>
+              <input v-model="activeEntity.appearance" class="neu-input" placeholder="身高、体型、发色瞳孔、面容特征与标志性衣着穿搭" />
             </div>
 
             <div class="form-field">
@@ -318,7 +383,7 @@
         <div v-show="activeTab === 'relationships'" class="tab-content">
           <div class="tab-top-actions">
             <span class="tab-summary-hint">
-              已从世界书与角色卡自动提取 {{ editableRelationships.length }} 名关联 NPC，落库后注入社交网络
+              当前展示【{{ activeEntity?.name || '当前主角' }}】专属社交关系网（共 {{ (activeEntity?.relationships || []).length }} 名 NPC，含群像同伴与常驻角色）
             </span>
             <NeuButton
               type="button"
@@ -328,13 +393,13 @@
             />
           </div>
 
-          <div v-if="editableRelationships.length === 0" class="empty-hint neu-inset-sm">
-            未在角色卡与世界书中检测到结构化 NPC，可点击右上角手动新增。
+          <div v-if="(activeEntity?.relationships || []).length === 0" class="empty-hint neu-inset-sm">
+            当前主角视角未检测到专属 NPC 关系，可点击右上角手动新增。
           </div>
 
           <div class="npc-cards-list">
             <div
-              v-for="(npc, nIdx) in editableRelationships"
+              v-for="(npc, nIdx) in (activeEntity?.relationships || [])"
               :key="nIdx"
               class="npc-edit-card neu-flat-sm"
             >
@@ -345,7 +410,7 @@
                 </div>
                 <div class="form-field npc-rel-field">
                   <label>社会关系类型</label>
-                  <input v-model="npc.relation_type" class="neu-input" placeholder="如：供养者 / 麻烦制造者" />
+                  <input v-model="npc.relation_type" class="neu-input" placeholder="如：主要搭档 / 导师 / 宿敌" />
                 </div>
                 <div class="form-field npc-affinity-field">
                   <label>初始好感 (0-100)</label>
@@ -372,8 +437,8 @@
                 <textarea
                   v-model="npc.summary"
                   class="neu-input npc-summary-textarea"
-                  rows="2"
-                  placeholder="NPC 身份特征、外貌特征、性格及与主角的历史羁绊"
+                  rows="3"
+                  placeholder="NPC 身份特征、能力性格特质及与当前主角的羁绊关系与态度"
                 ></textarea>
               </div>
             </div>
@@ -384,7 +449,7 @@
         <div v-show="activeTab === 'lores'" class="tab-content">
           <div class="tab-top-actions">
             <span class="tab-summary-hint">
-              已滤除酒馆状态栏与元指令，保留 {{ editableLores.length }} 条世界观法则（可勾选或编辑）
+              已滤除酒馆状态栏与元指令，保留 {{ editableLores.length }} 条世界观法则（可自由调整常驻或关键词触发）
             </span>
             <NeuButton
               type="button"
@@ -411,9 +476,13 @@
                     class="neu-input lore-title-input"
                     placeholder="条目标题（如：末法时代）"
                   />
-                  <select v-model="lore.category" class="neu-input lore-cat-select">
-                    <option value="static">静态常驻世界观</option>
-                    <option value="dynamic">动态关键词触发</option>
+                  <select
+                    v-model="lore.category"
+                    class="neu-input lore-cat-select"
+                    @change="onLoreCategoryChange(lore)"
+                  >
+                    <option value="static">静态常驻世界观 (全局加载)</option>
+                    <option value="dynamic">动态关键词触发 (按词激活)</option>
                   </select>
                 </div>
                 <button
@@ -427,7 +496,7 @@
               </div>
 
               <div v-if="lore.category === 'dynamic'" class="form-field">
-                <label>触发关键词 (英文逗号分隔)</label>
+                <label>触发关键词 (英文逗号分隔，命中时激活)</label>
                 <input
                   v-model="lore.trigger_keys"
                   class="neu-input"
@@ -500,7 +569,6 @@ const activeTab = ref<'persona' | 'vitals' | 'relationships' | 'lores'>('persona
 
 // 可编辑的数据副本
 const editableEntities = ref<DetectedEntity[]>([])
-const editableRelationships = ref<DetectedRelationship[]>([])
 const editableLores = ref<WorldLoreInput[]>([])
 
 const newItemInput = ref('')
@@ -523,8 +591,13 @@ const handleFileUpload = async (e: Event) => {
   try {
     const res = await apiClient.parseCard(file)
     parsedData.value = res.data
-    editableEntities.value = JSON.parse(JSON.stringify(res.data.detected_entities || []))
-    editableRelationships.value = JSON.parse(JSON.stringify(res.data.detected_relationships || []))
+
+    editableEntities.value = (res.data.detected_entities || []).map((ent) => ({
+      ...ent,
+      relationships: ent.relationships && ent.relationships.length > 0
+        ? JSON.parse(JSON.stringify(ent.relationships))
+        : JSON.parse(JSON.stringify(res.data.detected_relationships || [])),
+    }))
     editableLores.value = JSON.parse(JSON.stringify(res.data.lores || []))
 
     if (editableEntities.value.length > 0) {
@@ -535,6 +608,31 @@ const handleFileUpload = async (e: Event) => {
     alert(`解析失败: ${err.response?.data?.detail || err.message}`)
   } finally {
     isParsing.value = false
+  }
+}
+
+const onLoreCategoryChange = (lore: WorldLoreInput) => {
+  if (lore.category === 'static') {
+    lore.trigger_keys = ''
+  }
+}
+
+const handleAvatarChange = (e: Event) => {
+  const target = e.target as HTMLInputElement
+  if (!target.files || target.files.length === 0 || !activeEntity.value) return
+  const file = target.files[0]
+  const reader = new FileReader()
+  reader.onload = (loadEvt) => {
+    if (activeEntity.value && loadEvt.target?.result) {
+      activeEntity.value.avatar_url = loadEvt.target.result as string
+    }
+  }
+  reader.readAsDataURL(file)
+}
+
+const clearAvatar = () => {
+  if (activeEntity.value) {
+    activeEntity.value.avatar_url = ''
   }
 }
 
@@ -569,16 +667,23 @@ const removeGoal = (index: number) => {
 }
 
 const addNpc = () => {
-  editableRelationships.value.unshift({
+  if (!activeEntity.value) return
+  if (!activeEntity.value.relationships) {
+    activeEntity.value.relationships = []
+  }
+  const newNpc: DetectedRelationship = {
     npc_name: '新人物',
     relation_type: '同行者',
     affinity: 50,
     summary: '与主角有所交集的关键角色。',
-  })
+  }
+  activeEntity.value.relationships.unshift(newNpc)
 }
 
 const removeNpc = (index: number) => {
-  editableRelationships.value.splice(index, 1)
+  if (activeEntity.value?.relationships) {
+    activeEntity.value.relationships.splice(index, 1)
+  }
 }
 
 const addLore = () => {
@@ -597,7 +702,6 @@ const removeLore = (index: number) => {
 const resetAll = () => {
   parsedData.value = null
   editableEntities.value = []
-  editableRelationships.value = []
   editableLores.value = []
   currentEntityId.value = ''
 }
@@ -611,7 +715,7 @@ const handleImport = async () => {
       selected_entity: activeEntity.value,
       all_entities: editableEntities.value,
       lores: editableLores.value,
-      relationships: editableRelationships.value,
+      relationships: activeEntity.value.relationships || [],
       initial_location: activeEntity.value.initial_location,
       initial_virtual_time: activeEntity.value.initial_virtual_time,
       initial_health: activeEntity.value.initial_health,
@@ -915,6 +1019,115 @@ const handleImport = async () => {
   gap: 0.85rem;
 }
 
+/* 专属头像编辑区域 */
+.avatar-edit-section {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.avatar-preview-box {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.active-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.avatar-placeholder-large {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e2e8f0;
+  color: var(--neu-text-secondary);
+}
+
+.large-avatar-icon {
+  font-size: 2.5rem;
+}
+
+.avatar-actions-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  flex: 1;
+}
+
+.avatar-actions-title {
+  display: flex;
+  flex-direction: column;
+}
+
+.avatar-title-text {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--neu-text-primary);
+}
+
+.avatar-hint {
+  font-size: 0.72rem;
+  color: var(--neu-text-secondary);
+}
+
+.avatar-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.2rem;
+}
+
+.avatar-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--neu-accent);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.avatar-upload-btn:hover {
+  filter: brightness(0.95);
+}
+
+.avatar-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--neu-danger);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.avatar-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.basic-archive-row {
+  margin-top: -0.2rem;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1156,6 +1369,7 @@ const handleImport = async () => {
 
 .lore-title-group {
   display: flex;
+  align-items: center;
   gap: 0.65rem;
   flex: 1;
 }
@@ -1166,7 +1380,46 @@ const handleImport = async () => {
 }
 
 .lore-cat-select {
-  width: 170px;
+  width: 190px;
+}
+
+.lore-status-pill {
+  font-size: 0.72rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.lore-status-pill.static-pill {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.lore-status-pill.dynamic-pill {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.user-replacement-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  color: var(--neu-text-primary);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.user-replacement-banner .hint-icon {
+  font-size: 1.25rem;
+  color: var(--neu-accent);
+  flex-shrink: 0;
 }
 
 /* 底部操作 */

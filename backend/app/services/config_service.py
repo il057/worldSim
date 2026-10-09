@@ -18,6 +18,7 @@ DEFAULT_CONFIGS: Dict[str, str] = {
     "llm_presence_penalty": "0.0",
     "llm_top_p": "1.0",
     "realtime_tick_hours": "1",
+    "enable_stream_display": "true",
 }
 
 

@@ -27,11 +27,15 @@ class DetectedEntity(BaseModel):
     entity_id: str
     name: str
     title: Optional[str] = None
+    gender: Optional[str] = Field("保密", description="生理/社会性别 (男 | 女 | 其他/非二元 | 无性别/未知)")
+    birthday: Optional[str] = Field("", description="生日或诞生时间（如 '2007年3月15日' 或 '天禧二年五月初三'），用于随虚拟世界时间流逝动态推演周岁")
+    appearance: Optional[str] = Field("", description="外貌体征与服饰细节 (身高、体型、发色瞳色、显著身体标志与常驻装束)")
     avatar_url: Optional[str] = None
     persona_summary: str
     inner_drive: str
     circadian_profile: CircadianProfile
     relationships_with_others: Optional[str] = ""
+    relationships: List[DetectedRelationship] = Field(default_factory=list, description="该实体主视角下专属的社交关系网（含其他主要角色、公共NPC及替代user的具象化NPC）")
     initial_location: Optional[str] = "长宁市古董街老宅"
     initial_virtual_time: Optional[str] = "晨光月 1日 08:00"
     initial_health: Optional[int] = 100
@@ -55,6 +59,7 @@ class CardParseResponse(BaseModel):
     total_lore_entries: int
     lores: List[WorldLoreInput]
     raw_preview: Optional[Dict[str, Any]] = None
+    user_replacement_hint: Optional[str] = None
 
 
 class CardImportRequest(BaseModel):

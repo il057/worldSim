@@ -207,9 +207,20 @@ AI 开发者在实现 Pydantic Schema 或类型定义时，应确保涵盖以下
     "enabled_patches": ["plain_sketch", "living_dialogue", "anti_summary", "living_grounding", "camera_focus"],
     "custom_style_guidance": "加强机械发条咬合声与机油冷凝气味的描写",
     "pass1_custom_prompt": null,
-    "pass2_custom_prompt": null
-  }
-}
-```
-后端在 `SimulationService` 中解析该配置，动态组装 Pass 1 与 Pass 2 的 System Prompt 与篇幅指标，并在请求中生效。
+### 5.5 SSE 实时流式传输与正文呈现规范 (Real-Time SSE Streaming)
+
+为了解决长文本生成时用户的等待焦虑，系统在保持 Pass 1 / Pass 2 双步解耦与事务原子性的前提下，提供了高响应度的 SSE (Server-Sent Events) 实时推演流：
+1. **流式端点**：
+   - `/api/v1/sim/step-stream`
+   - `/api/v1/sim/fast-forward-stream`
+   - `/api/v1/sim/trigger-incident-stream`
+2. **事件流协议**：
+   - `event: status`：返回当前执行阶段（`pass1` 或 `pass2`）与状态文案；
+   - `event: pass1_done`：Pass 1 裁决完毕，先发传递虚拟时空与 Plot Beat 骨架；
+   - `event: chunk`：Pass 2 Storyteller 输出的实时文本增量 Token (负载兼容 `text` 与 `delta` 字段)，前端即时以打字机模式逐字上屏；
+   - `event: finish`：推演完成并成功提交数据库事务，返回完整 `StepTickResponse`；
+   - `event: error`：执行异常或中断时回滚并返回结构化错误码。
+3. **系统开关配置 (`enable_stream_display`)**：
+   - 用户可在【系统设置】中自由开启或关闭流式呈现；
+   - 开启时以 SSE 实时流呈现打字机正文；关闭时自动降级为等待全量生成后的单次卡片落幕。
 

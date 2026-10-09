@@ -1,4 +1,6 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas import (
@@ -77,3 +79,75 @@ async def sim_trigger_incident(req: SimTriggerIncidentRequest, db: Session = Dep
         return res
     except Exception as e:
         raise map_sim_exception_to_http(e)
+
+
+@router.post("/step-stream")
+async def sim_step_stream(req: SimStepRequest, db: Session = Depends(get_db)):
+    """纯按钮微步进实时流式输出 (SSE)"""
+    async def event_generator():
+        try:
+            async for evt in SimulationService.run_step_stream(
+                db, req.character_id, hours=req.hours, config=req.config
+            ):
+                yield f"event: {evt['event']}\ndata: {json.dumps(evt['data'], default=str, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            err_dict = {
+                "error_code": getattr(e, "error_code", "SIM_STREAM_ERROR"),
+                "message": getattr(e, "message", str(e)),
+            }
+            yield f"event: error\ndata: {json.dumps(err_dict, default=str, ensure_ascii=False)}\n\n"
+
+    sse_headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=sse_headers)
+
+
+@router.post("/fast-forward-stream")
+async def sim_fast_forward_stream(req: SimFastForwardRequest, db: Session = Depends(get_db)):
+    """阶段快进实时流式输出 (SSE)"""
+    async def event_generator():
+        try:
+            async for evt in SimulationService.fast_forward_stream(
+                db, req.character_id, step_type=req.step_type, config=req.config
+            ):
+                yield f"event: {evt['event']}\ndata: {json.dumps(evt['data'], default=str, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            err_dict = {
+                "error_code": getattr(e, "error_code", "SIM_STREAM_ERROR"),
+                "message": getattr(e, "message", str(e)),
+            }
+            yield f"event: error\ndata: {json.dumps(err_dict, default=str, ensure_ascii=False)}\n\n"
+
+    sse_headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=sse_headers)
+
+
+@router.post("/trigger-incident-stream")
+async def sim_trigger_incident_stream(req: SimTriggerIncidentRequest, db: Session = Depends(get_db)):
+    """突发事件实时流式输出 (SSE)"""
+    async def event_generator():
+        try:
+            async for evt in SimulationService.trigger_incident_stream(
+                db, req.character_id, config=req.config
+            ):
+                yield f"event: {evt['event']}\ndata: {json.dumps(evt['data'], default=str, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            err_dict = {
+                "error_code": getattr(e, "error_code", "SIM_STREAM_ERROR"),
+                "message": getattr(e, "message", str(e)),
+            }
+            yield f"event: error\ndata: {json.dumps(err_dict, default=str, ensure_ascii=False)}\n\n"
+
+    sse_headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=sse_headers)

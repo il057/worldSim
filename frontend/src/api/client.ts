@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const api = axios.create({
   baseURL: '/api/v1',
-  timeout: 120000, // LLM 推演可能耗时较长
+  timeout: 300000, // 默认 5 分钟超时，避免超长 LLM 推演提前断开
 })
 
 export interface CircadianProfile {
@@ -115,11 +115,15 @@ export interface DetectedEntity {
   entity_id: string
   name: string
   title?: string
+  gender?: string
+  birthday?: string
+  appearance?: string
   avatar_url?: string
   persona_summary: string
   inner_drive: string
   circadian_profile: CircadianProfile
   relationships_with_others?: string
+  relationships?: DetectedRelationship[]
   initial_location?: string
   initial_virtual_time?: string
   initial_health?: number
@@ -142,6 +146,7 @@ export interface CardParseResponse {
   detected_relationships?: DetectedRelationship[]
   total_lore_entries: number
   lores: WorldLoreInput[]
+  user_replacement_hint?: string
   raw_preview?: any
 }
 
@@ -169,6 +174,100 @@ export interface SimulationPromptConfig {
   pass2_custom_prompt?: string
 }
 
+export interface SimStreamCallbacks {
+  onStatus?: (data: { stage: 'pass1' | 'pass2'; message: string }) => void
+  onPass1Done?: (data: { virtual_time: string; location: string; plot_beat: string }) => void
+  onChunk?: (chunk: string) => void
+  onFinish?: (data: StepTickResponse) => void
+  onError?: (err: { error_code?: string; message: string }) => void
+}
+
+async function fetchSSE(
+  url: string,
+  body: any,
+  callbacks: SimStreamCallbacks,
+  signal?: AbortSignal
+): Promise<StepTickResponse> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+    signal,
+  })
+
+  if (!response.ok) {
+    let errMsg = `HTTP Error ${response.status}`
+    try {
+      const errJson = await response.json()
+      errMsg = errJson.detail || errJson.message || errMsg
+    } catch {
+      // ignore
+    }
+    const errObj = { error_code: `HTTP_${response.status}`, message: errMsg }
+    callbacks.onError?.(errObj)
+    throw new Error(errMsg)
+  }
+
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error('Response body is not readable')
+
+  const decoder = new TextDecoder('utf-8')
+  let buffer = ''
+  let finalResult: StepTickResponse | null = null
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+
+    let currentEvent = 'message'
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed) {
+        currentEvent = 'message'
+        continue
+      }
+      if (trimmed.startsWith('event:')) {
+        currentEvent = trimmed.slice(6).trim()
+      } else if (trimmed.startsWith('data:')) {
+        const dataStr = trimmed.slice(5).trim()
+        try {
+          const parsed = JSON.parse(dataStr)
+          if (currentEvent === 'status') {
+            callbacks.onStatus?.(parsed)
+          } else if (currentEvent === 'pass1_done') {
+            callbacks.onPass1Done?.(parsed)
+          } else if (currentEvent === 'chunk') {
+            const chunkText = typeof parsed === 'string' ? parsed : (parsed.text ?? parsed.delta ?? '')
+            if (chunkText) {
+              callbacks.onChunk?.(chunkText)
+            }
+          } else if (currentEvent === 'finish') {
+            finalResult = parsed as StepTickResponse
+            callbacks.onFinish?.(finalResult)
+          } else if (currentEvent === 'error') {
+            callbacks.onError?.(parsed)
+            throw new Error(parsed.message || '推演流式输出失败')
+          }
+        } catch (e: any) {
+          if (currentEvent === 'error') throw e
+          console.warn('Failed to parse SSE data:', dataStr, e)
+        }
+      }
+    }
+  }
+
+  if (!finalResult) {
+    throw new Error('推演流未接收到完成指令')
+  }
+  return finalResult
+}
+
 export const apiClient = {
   // 角色列表与详情
   getCharacters: () => api.get<any[]>('/characters'),
@@ -179,13 +278,39 @@ export const apiClient = {
   resetCharacter: (id: string) => api.post(`/characters/${id}/reset`),
   deleteCharacter: (id: string) => api.delete<{ message: string }>(`/characters/${id}`),
 
-  // 纯按钮推演控制
+  // 纯按钮推演控制 (普通非流式)
   step: (characterId: string, hours = 1, config?: SimulationPromptConfig) =>
     api.post<StepTickResponse>('/sim/step', { character_id: characterId, hours, config }),
   fastForward: (characterId: string, stepType: 'hour_6' | 'day_1', config?: SimulationPromptConfig) =>
     api.post<StepTickResponse>('/sim/fast-forward', { character_id: characterId, step_type: stepType, config }),
   triggerIncident: (characterId: string, config?: SimulationPromptConfig) =>
     api.post<StepTickResponse>('/sim/trigger-incident', { character_id: characterId, config }),
+
+  // 纯按钮推演控制 (SSE 实时流式)
+  stepStream: (
+    characterId: string,
+    hours = 1,
+    config?: SimulationPromptConfig,
+    callbacks: SimStreamCallbacks = {},
+    signal?: AbortSignal
+  ) =>
+    fetchSSE('/api/v1/sim/step-stream', { character_id: characterId, hours, config }, callbacks, signal),
+  fastForwardStream: (
+    characterId: string,
+    stepType: 'hour_6' | 'day_1',
+    config?: SimulationPromptConfig,
+    callbacks: SimStreamCallbacks = {},
+    signal?: AbortSignal
+  ) =>
+    fetchSSE('/api/v1/sim/fast-forward-stream', { character_id: characterId, step_type: stepType, config }, callbacks, signal),
+  triggerIncidentStream: (
+    characterId: string,
+    config?: SimulationPromptConfig,
+    callbacks: SimStreamCallbacks = {},
+    signal?: AbortSignal
+  ) =>
+    fetchSSE('/api/v1/sim/trigger-incident-stream', { character_id: characterId, config }, callbacks, signal),
+
   getPromptMeta: () => api.get<any>('/sim/prompt-meta'),
 
   // 角色卡解析与极简创建
@@ -194,6 +319,7 @@ export const apiClient = {
     formData.append('file', file)
     return api.post<CardParseResponse>('/cards/parse', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 600000, // 角色卡解析与世界书全量清洗支持最高 10 分钟
     })
   },
   importCard: (payload: {

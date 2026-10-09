@@ -257,7 +257,7 @@ CREATE TABLE IF NOT EXISTS system_configs (
 | `AUTH_FAILED` | HTTP 401 / 403 鉴权失败 | 提示打开右上角设置，检查 API Key 拼写与访问权限。 |
 | `RATE_LIMIT_OR_QUOTA` | HTTP 429 频次受限或欠费 | 提示稍后重试，或检查第三方模型账户剩余额度。 |
 | `MODEL_NOT_FOUND` | HTTP 404 模型标识不存在 | 提示检查当前选中的模型标识，建议重新探测模型。 |
-| `NETWORK_TIMEOUT` | 网络请求超时 (90s) | 提示检查网络环境或中转服务状态，并引导用户点击重试。 |
+| `NETWORK_TIMEOUT` | 网络请求超时 (180s) | 提示检查网络环境或中转服务状态，并引导用户点击重试。 |
 | `NETWORK_ERROR` | 连接建立失败 (ECONNREFUSED) | 提示检查 Base URL 地址及代理网络配置。 |
 | `PASS1_FAILED` | Pass 1 裁决输出解析失败 | 提示已保护数据并回滚，引导用户直接点击重试。 |
 | `PASS2_FAILED` | Pass 2 场景正文生成中断 | 提示已保护数据并回滚，引导用户直接点击重试。 |

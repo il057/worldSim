@@ -38,7 +38,7 @@ def clean_json_str(text: str) -> str:
 class IngestionService:
     @staticmethod
     def clean_text_artifacts(text: str, char_name: str = "") -> str:
-        """剥离 HTML 标签、酒馆宏与控制性标记（仅做基础正则预处理，绝不截断正文）"""
+        """剥离 HTML 标签、酒馆宏、纯正则替换代码与控制性标记（仅做基础正则预处理，绝不截断正文）"""
         if not text:
             return ""
 
@@ -49,15 +49,20 @@ class IngestionService:
         text = re.sub(r"<(br|p|div)[^>]*>", "\n", text, flags=re.IGNORECASE)
         text = re.sub(r"</(p|div)>", "\n", text, flags=re.IGNORECASE)
 
-        # 3. 移除剩余裸露 HTML 标签
+        # 3. 移除剩余 HTML 标签与注释
+        text = re.sub(r"<!--[\s\S]*?-->", "", text)
         text = re.sub(r"<[^>]+>", "", text)
 
-        # 4. 剥离酒馆对话标记与条件宏
+        # 4. 剥离酒馆对话标记、变量与条件宏
         text = re.sub(r"<START>", "", text, flags=re.IGNORECASE)
         text = re.sub(r"\{\{random:[^}]+\}\}", "", text)
         text = re.sub(r"\{\{setvar:[^}]+\}\}", "", text)
+        text = re.sub(r"\{\{getvar:[^}]+\}\}", "", text)
 
-        # 5. 替换 {{char}} 占位符
+        # 5. 剥离内嵌的纯正则替换宏 (如 s/foo/bar/g)
+        text = re.sub(r"s/[^/\n]+/[^/\n]*/[gimsuy]*", "", text)
+
+        # 6. 替换 {{char}} 占位符
         if char_name:
             text = text.replace("{{char}}", char_name).replace("{{CHAR}}", char_name)
 
@@ -65,6 +70,46 @@ class IngestionService:
         lines = [line.strip() for line in text.split("\n")]
         cleaned = "\n".join([line for line in lines if line])
         return strip_emojis(cleaned)
+
+    @classmethod
+    def is_frontend_junk_entry(cls, title: str, content: str, keys: str) -> bool:
+        """精准识别并拦截纯酒馆前端插件、状态栏模板、纯正则脚本与越狱/提示词注入条目（保护写作风格指导）"""
+        t_low = title.lower()
+        c_low = content.lower()
+
+        # 0. 写作风格指导白名单（严禁拦截，必须交由 AI 完整保留并重写整理）
+        style_keywords = ["写作风格", "风格指导", "文风", "描写规范", "语调", "writing style", "style guide", "narrative style"]
+        if any(sk in t_low or sk in c_low for sk in style_keywords):
+            return False
+
+        # 1. 标题高危关键词命中（前端配置/状态栏/正则宏等）
+        junk_title_keywords = [
+            "状态栏", "status", "hud", "display", "format", "regex", "正则",
+            "脚本", "script", "jailbreak", "越狱", "post-history", "inject",
+            "macro", "代码", "table_format", "gui", "ui", "view_template",
+            "system_prompt", "prompt_template", "reply_format", "回复格式",
+            "output_format", "markdown_table", "author's note", "authors note"
+        ]
+        if any(kw in t_low for kw in junk_title_keywords):
+            return True
+
+        # 2. 纯正则替换脚本特征 (如 s/foo/bar/g 或 /(.*)/g ->)
+        if re.search(r"/(?:[^\n/]+)/[gimsuy]*\s*->", content) or re.search(r"s/[^/\n]+/[^/\n]*/[gimsuy]*", content):
+            return True
+
+        # 3. HTML/CSS 前端渲染代码块特征
+        if "<style" in c_low or "<script" in c_low or "div class=" in c_low or "markdown_table" in c_low:
+            return True
+
+        # 4. 前端变量宏与状态模板特征
+        if "{{getvar:" in c_low or "{{setvar:" in c_low or "status_bar" in c_low:
+            return True
+
+        # 5. 系统指令/越狱覆写特征
+        if re.search(r"\[(?:system|instruction|prompt)\s*(?:note|override):", content, re.IGNORECASE):
+            return True
+
+        return False
 
     @classmethod
     def decouple_user_dependency(cls, text: str) -> str:
@@ -79,6 +124,8 @@ class IngestionService:
             (r"\{\{user\}\}的", "昔日同行者的"),
             (r"\{\{user\}\}", "不告而别的旧友"),
             (r"\{\{USER\}\}", "昔日旧友"),
+            (r"<user>", "昔日旧友"),
+            (r"\{user\}", "昔日旧友"),
         ]
         res = text
         for pat, repl in replacements:
@@ -162,13 +209,13 @@ class IngestionService:
         scenario = data_block.get("scenario", "")
         first_mes = data_block.get("first_mes", "")
 
-        # 1. 基础正则清洗（不截断任何长度）
-        cleaned_desc = cls.decouple_user_dependency(cls.clean_text_artifacts(description, main_name))
-        cleaned_pers = cls.decouple_user_dependency(cls.clean_text_artifacts(personality, main_name))
-        cleaned_scen = cls.decouple_user_dependency(cls.clean_text_artifacts(scenario, main_name))
-        cleaned_first = cls.decouple_user_dependency(cls.clean_text_artifacts(first_mes, main_name))
+        # 1. 基础正则清洗（剔除 HTML/CSS 与宏标记，但保留原设定中涉及 {{user}} 的上下文，以便 AI 精确识别其生态位并具象化为 NPC）
+        cleaned_desc = cls.clean_text_artifacts(description, main_name)
+        cleaned_pers = cls.clean_text_artifacts(personality, main_name)
+        cleaned_scen = cls.clean_text_artifacts(scenario, main_name)
+        cleaned_first = cls.clean_text_artifacts(first_mes, main_name)
 
-        # 全量组装人设（绝不做 [:400] 或 [:1000] 等任何限制截断）
+        # 全量组装人设（绝不做限制截断）
         persona_parts = []
         if cleaned_pers:
             persona_parts.append(cleaned_pers)
@@ -181,7 +228,7 @@ class IngestionService:
         if not full_persona_text:
             full_persona_text = f"{main_name}，角色卡未提供详细文字描述。"
 
-        # 2. 收集卡片自带的全部世界书条目
+        # 2. 收集卡片自带的全部世界书条目（提取原始 constant 常驻属性与触发词，并强力拦截前端状态栏/正则脏条目）
         cbook = data_block.get("character_book", {}) or card_data.get("character_book", {})
         raw_entries = cbook.get("entries", [])
         raw_entries_list: List[Dict[str, Any]] = []
@@ -194,72 +241,139 @@ class IngestionService:
                 if not content or len(content.strip()) < 5:
                     continue
                 keys = entry.get("keys", [])
+                if not keys:
+                    keys = entry.get("key", [])
                 keys_str = ",".join([k.strip() for k in keys if k.strip()]) if isinstance(keys, list) else str(keys)
                 comment = entry.get("comment", "") or entry.get("name", "") or "世界书设定"
+
+                # 核心拦截：直接过滤前端状态栏、正则代码、输出格式宏与越狱垃圾条目（防止输入Token膨胀与垃圾正文入库）
+                if cls.is_frontend_junk_entry(comment, content, keys_str):
+                    logger.info(f"[AI Ingestion] 已自动过滤前端/正则脏条目: 【{comment}】")
+                    continue
+
+                is_constant = bool(entry.get("constant", False))
+                cleaned_c = cls.clean_text_artifacts(content, main_name)
+                if not cleaned_c or len(cleaned_c.strip()) < 5:
+                    continue
+
                 raw_entries_list.append({
                     "title": comment,
+                    "is_constant": is_constant,
                     "keys": keys_str,
-                    "content": cls.clean_text_artifacts(content, main_name),
+                    "content": cleaned_c,
                 })
 
         # 3. 构建全量 AI 整理提示词
         system_prompt = (
-            "你是一个虚拟世界设定深度分析与小说推演架构专家。用户上传了一张 SillyTavern 酒馆角色卡。\n"
+            "你是一个顶尖虚拟世界设定深度分析与群像小说推演架构专家。用户上传了一张 SillyTavern 酒馆角色卡。\n"
             "你需要对卡片的基础人设与全部世界书条目进行端到端的深度整理、清洗与高阶画像衍生。\n\n"
-            "【铁律准则】\n"
-            "1. 严禁使用任何敷衍的默认占位值（如“漫游者”、“警惕且冷静”、“随身物件”、“避雨涵洞”等）！必须完全立足于提供的人设背景、世界法理和生活情境，量身打造每一个字段！\n"
-            "2. 角色卡通常不存在高阶运行数据（如精确身份称号、作息画像、具体居所地点、随身特色物品、紧迫目标），你必须基于卡片人设与世界观深度推导补全。\n"
-            "3. 世界书清洗与整合：\n"
-            "   - 剔除纯酒馆前端状态栏、回复格式宏、代码块指令、系统提示或越狱条目；\n"
-            "   - 识别并提取所有 NPC 关系；凡是已转化为 NPC 关系的条目，不再重复保留在世界书列表（kept_lores）中，避免重复冗余；\n"
-            "   - 保留真实的架空世界法则、历史事件、地理背景与势力设定。\n"
-            "4. 多人卡识别：检查世界书与卡片设定中是否包含多个独立主角（或可操作角色）。若有，entities 数组中输出所有候选主角；若为单主角卡，输出 1 个主角实体。\n\n"
+            "【最高铁律准则】\n"
+            "1. 严禁使用任何敷衍的默认占位值（如“漫游者”、“警惕且冷静”、“随身物件”等）！必须完全立足于人设背景、世界法理和生活情境量身定制！\n\n"
+            "2. 【解耦 {{user}} 与生态位 NPC 具象化生成】（极度重要）：\n"
+            "   - 绝对禁止识别 {{user}} / 玩家 为 POV 候选主角！主视角实体（entities）必须全部是角色卡中真实定义的具名人物。\n"
+            "   - 仔细分析卡片设定与世界书中关于 {{user}}（原玩家/对话者）的描写与设定：\n"
+            "     若原设定赋予了 {{user}} 某种特定社会角色或生态位（例如：五人乐队里的鼓手、侦探事务所搭档、同住舍友、青梅竹马、契约者、专属监护人等）：\n"
+            "     你必须根据卡片中提到的只言片语，具象化新建一个符合世界观背景的具名 NPC，用以代替原 user 的生态位！\n"
+            "   - 【严格遵循社会学与亲属文化逻辑】（必须严密自洽，杜绝逻辑漏洞）：\n"
+            "     1. 血缘亲属同姓：若原设定中 user 与主角（或某位主要角色）是双胞胎、兄弟姐妹、父子/母女等亲属关系，生成的具名 NPC 必须共享相同的家族姓氏！若为双胞胎，名字更需体现对称呼应、同字辈或相近音义（如中式同姓同字辈，西式同姓且音律相衬），绝对禁止双胞胎却使用完全无关姓氏的低级常识漏洞；\n"
+            "     2. 组织与阶层自洽：若是同门弟子、同一乐队、同事搭档，姓名风格必须与故事所处的世界观时代、国别文化与社会阶层高度协调；\n"
+            "     - 明确其社会身份、外貌性格特征以及与主角们的交集；\n"
+            "     - 将该 NPC 加入到所有候选主角的 NPC 关系网（relationships）中；\n"
+            "     - 在各个主角的描述和人设中，将原本对 {{user}} 的依赖彻底转写为对该具象化 NPC 的羁绊与态度，使世界完全自洽闭环演化！\n\n"
+            "3. 【所有登场 NPC 平等深度描写准则（双轨结构与零冗余提炼）】（极度重要）：\n"
+            "   - 仔细识别卡片主体与世界书中包含的所有主要角色（或可操作角色/并列主角，如乐队的各个乐手、公馆的几位主要住客等）。\n"
+            "   - 若包含多个主要角色，is_multi_entity 设为 true，在 entities 数组中输出所有候选主角实体。\n"
+            "   - 每个候选实体的人设、执念、作息、开局场景、生理状态、背包物品与行动目标必须完全独立且量身定制。\n"
+            "   - 【所有登场 NPC 平等对待原则】：\n"
+            "     无论某 NPC 在原卡中是并列主要角色还是世界书配角，在最终呈现时地位完全平等；\n"
+            "     在 entities 的 relationships 关系网中，聚焦输出当前主视角对该 NPC 的【专属社会关系】、【初始好感度】与【专属主观态度与互动纠葛】（精炼深刻，50~100字，写明具体相处态度与过往羁绊，严禁单句‘嫌弃对方’敷衍；客观身份生平画像将由系统统一从实体人设/世界书中自动对齐融合，切勿在此重复冗长抄写其生平，严禁写‘本卡主要角色’等元标签）；\n"
+            "   - 【多实体专属关系网绝对独立】：每一个 entity 必须包含专属的 relationships 关系网数组！实体 A 对 NPC X 的好感度（affinity 0-100）和态度评价，必须与实体 B 对 NPC X 完全不同，立足各自立场深入撰写！\n\n"
+            "4. 【消除字段冗余与纯粹深入性格特质】（极度重要）：\n"
+            "   - 每一个 entity 必须提炼输出独立的显式基础生理字段：\n"
+            "     - gender: 生理/社会性别 (男 | 女 | 其他/非二元 | 无性别/未知)\n"
+            "     - birthday: 诞生时间/生日（必须包含确切年份与月日，如 '2007年3月15日' 或 '天禧二年五月初三'）\n"
+            "     - appearance: 外貌体征与服饰细节 (身高、体型、发型发色、瞳孔眼眸、显著面部特征与标志性常驻着装)\n"
+            "   - 【严禁在 persona_summary 中重复生理标签】：gender、birthday、appearance 已经具备专属独立字段，persona_summary 严禁重复写性别、生日、外貌等已结构化的基础信息，杜绝浪费上下文 Token！\n"
+            "   - persona_summary 必须将全量笔墨深度倾注于：角色深刻的核心性格底色、为人处世哲学、行事准则、心理防御机制、行为癖好、人际交往态度与深层人物背景脉络（不设字数上限，严禁人为机械截断）。\n\n"
+            "5. 【世界书配角全量提炼与高质量重写世界法则（必须保留写作风格指导）】（极度重要）：\n"
+            "   - 【全量提取世界书具名配角/NPC（不可遗漏）】：凡是描述具体人物、次要角色、配角、组织首脑/干部、联络人、同伴、对手或导师等具名角色的条目，必须全部提取并输出到顶层的 world_npcs 列表中！每一个世界书具名角色都必须被提取为 NPC！\n"
+            "   - 【NPC 人设画像完整刻画】：提取的 world_npcs 的 summary 中，深入完整阐述其身份背景、社会定位与性格特征（80~150字，严禁人为字数截断，严禁出现“本卡主要角色”等元标签）！已被提炼为 NPC 的世界书人物条目，绝不再放入 kept_lores 中；\n"
+            "   - 【AI 深度重写与理顺世界法则正文（精炼自洽，保留核心）】：\n"
+            "     对于保留在 kept_lores 中的世界法则条目，必须由你输出深度重写润色后的 content！彻底剥离原文中夹杂的酒馆正则代码、宏语法、前端排版格式与乱码，理顺语句逻辑，使用流畅自然、严谨自洽的小说世界观文学语言重新组织表述（每条控制在 100~300 字核心设定以内，绝不拖泥带水，杜绝冗长扩写）！\n"
+            "   - 【必须保留“写作风格指导”类条目】：特别注意！若原世界书中包含“写作风格指导”、“文学语调或语言风格”、“叙事视角与描写规范”等创作准则，必须予以保留并深度重写理顺，将其 category 设为 'static'，trigger_keys 必须为空字符串 ''！\n"
+            "   - 【世界法则分类严格区隔】：\n"
+            "     - category 为 'static'（静态常驻）：用于全域世界观法则、物理/魔法底层定理、大时代背景、写作风格指导。静态常驻条目的 trigger_keys 必须为空字符串 ''！严禁填写触发词！\n"
+            "     - category 为 'dynamic'（动态关键词触发）：用于特定微观地点、特定阵营组织、专属神器道具、特定机密或支线事件。动态触发条目的 trigger_keys 必须填写 1~5 个逗号分隔的精确触发关键词（如：'黑天鹅公馆, 钟楼'）！\n"
+            "   - 【彻底替换与解耦 {{user}}】：在重写世界法则正文时，将涉及原玩家/user 的设定，彻底转写为对替代 user 的具象化 NPC 的羁绊或客观背景代词，绝不能保留任何 {{user}} 标签！\n"
+            "   - 剔除纯酒馆前端状态栏、回复格式宏、代码块指令、系统提示或越狱条目（无需在 kept_lores 中列出被剔除的条目）。\n\n"
             "严格以 JSON 对象输出，包含以下结构：\n"
             "{\n"
             '  "is_multi_entity": false,\n'
+            '  "user_replacement_npc_name": "若识别并具象化了替代 user 生态位的 NPC 则填写其姓名，否则为空字符串",\n'
+            '  "world_npcs": [\n'
+            "    {\n"
+            '      "npc_name": "从世界书条目中提取的具名NPC姓名",\n'
+            '      "relation_type": "该NPC在世界观中的公共社会身份或职业",\n'
+            '      "affinity": 50,\n'
+            '      "summary": "该NPC在世界中的客观身份背景、核心能力特征与性格特质（立体独立画像，80~150字，严禁写‘本卡主要角色’等废话）"\n'
+            "    }\n"
+            "  ],\n"
             '  "entities": [\n'
             "    {\n"
             '      "name": "角色姓名",\n'
-            '      "role": "角色的精准身份称号或头衔（如九尾天狐 / 特级荣誉顾问，严禁漫游者）",\n'
-            '      "persona_summary": "该实体的完整人设（可基于输入人设适度整理，严禁粗暴截断）",\n'
-            '      "inner_drive": "核心内在心理执念与不可磨灭的终极追求（50~100字）",\n'
+            '      "role": "角色的精准身份称号或头衔",\n'
+            '      "gender": "生理/社会性别 (男 | 女 | 其他/非二元 | 无性别/未知)",\n'
+            '      "birthday": "诞生时间/生日 (例如: 2007年3月15日 或 天禧二年五月初三)",\n'
+            '      "appearance": "外貌体征与服饰细节 (身高、体型、发色瞳色、标志性装束等)",\n'
+            '      "persona_summary": "深入且完整地刻画该实体的性格特质、处事哲学、行事准则与深层背景（不设字数上限，严禁人为截断；绝不重复写性别/生日/外貌；已彻底解耦 {{user}}，转为对替代 NPC 的羁绊）",\n'
+            '      "inner_drive": "核心内在心理执念与不可磨灭的终极追求（深入刻画，不限字数）",\n'
             '      "chronotype": "生理节律倾向 (夜行型 | 早起型 | 昼夜无律型 | 无休眠体质)",\n'
             '      "typical_rest_window": "常规休眠倾向窗口 (例如 05:00 - 13:00)",\n'
-            '      "environment_tolerance": "休眠环境耐受度与要求 (例如 私人老宅软榻或安静向阳的躺椅)",\n'
+            '      "environment_tolerance": "休眠环境耐受度与要求",\n'
             '      "sleep_trigger_summary": "作息驱动与休眠逻辑简述",\n'
-            '      "initial_location": "开局微观具体场景位置 (基于背景与住所提炼，例如 长宁市古董街36号枕流居老宅前厅茶榻)",\n'
-            '      "initial_virtual_time": "开局虚拟时间。必须包含明确确切的【年份、月份、日号、时:分】（例如：\'2024年10月9日 20:15\' 或 \'天禧三年十月初九日 20:15\'）！严禁仅写模糊的季节或无日期的时辰，必须包含明确具体的年、月、日、时:分！",\n'
+            '      "initial_location": "开局微观具体场景位置",\n'
+            '      "initial_virtual_time": "开局虚拟时间。必须包含确切的具体年、月、日、时:分（例如：\'2024年10月9日 20:15\' 或 \'天禧三年十月初九日 20:15\'）",\n'
             '      "initial_health": 100,\n'
             '      "initial_stamina": 90,\n'
-            '      "initial_psychological_state": "即时心理情绪 (例如 慵懒、内敛且敏锐)",\n'
-            '      "initial_inventory": ["3~5件高度符合角色身份与背景的随身/在手标志性物品"],\n'
-            '      "initial_goals": ["2~3条贴合背景与当前情境的紧迫目标"]\n'
-            "    }\n"
-            "  ],\n"
-            '  "npcs": [\n'
-            "    {\n"
-            '      "npc_name": "NPC 姓名",\n'
-            '      "relation_type": "与主角的社会关系类型",\n'
-            '      "affinity": 50,  // 根据态度与好恶推导 (0-100)\n'
-            '      "summary": "身份背景、外貌特征、性格及对主角态度概述"\n'
+            '      "initial_psychological_state": "即时心理情绪",\n'
+            '      "initial_inventory": ["3~5件标志性随身物品"],\n'
+            '      "initial_goals": ["2~3条贴合背景与当前情境的紧迫目标"],\n'
+            '      "relationships": [\n'
+            "        {\n"
+            '          "npc_name": "与当前实体有直接联系的NPC姓名（包含其他主要角色、核心世界书NPC、替代user的NPC）",\n'
+            '          "relation_type": "当前实体视角下的专属社会关系类型",\n'
+            '          "affinity": 50,  // 当前实体对该 NPC 的初始好感度 (0-100)\n'
+            '          "summary": "当前主视角实体对该 NPC 的专属态度、看法、好感成因与互动纠葛（精炼深刻，50~100字，写明具体相处态度与过往羁绊，严禁单句‘嫌弃对方’敷衍；客观身份生平画像将由系统统一融合，无需在此重复抄写生平，严禁‘本卡主角’等元描述）"\n'
+            "        }\n"
+            "      ]\n"
             "    }\n"
             "  ],\n"
             '  "kept_lores": [\n'
             "    {\n"
+            '      "entry_index": 1,  // 对应上述【条目编号 1】\n'
             '      "title": "条目标题",\n'
             '      "category": "static 或 dynamic",\n'
-            '      "trigger_keys": "触发词（逗号分隔）",\n'
-            '      "content": "清洗后的世界观法则正文"\n'
+            '      "trigger_keys": "若为 static 必须为空字符串；若为 dynamic 则为逗号分隔的触发词",\n'
+            '      "content": "深度重写润色、理顺逻辑、剔除错乱正则与前端宏后的高质量世界法则正文（保留核心设定与写作风格指导，语言精炼自洽，每条100~300字，彻底解耦 {{user}}）"\n'
             "    }\n"
             "  ]\n"
             "}\n"
             "严禁包含任何 Emoji 图标。"
         )
 
-        lores_context = "\n\n".join([
-            f"【条目 {i+1}】标题: {e['title']}\n触发词: {e['keys']}\n内容:\n{e['content']}"
-            for i, e in enumerate(raw_entries_list)
-        ])
+        lores_context_items = []
+        for i, e in enumerate(raw_entries_list):
+            idx = i + 1
+            raw_type_hint = "常驻生效(Constant)" if e["is_constant"] else ("关键词触发" if e["keys"] else "常驻背景")
+            clean_c = e['content']
+            c_snippet = clean_c if len(clean_c) <= 1500 else f"{clean_c[:1500]}...(后略)"
+            lores_context_items.append(
+                f"【条目编号 {idx}】标题: {e['title']}\n"
+                f"原始属性提示: {raw_type_hint}\n"
+                f"原始关键词: {e['keys'] or '无'}\n"
+                f"内容概要:\n{c_snippet}"
+            )
+        lores_context = "\n\n".join(lores_context_items)
 
         user_prompt = (
             f"【角色卡主体信息】\n"
@@ -293,12 +407,36 @@ class IngestionService:
             raise ValueError(f"AI 整理返回格式异常，解析失败: {str(e)}")
 
         is_multi = bool(ai_data.get("is_multi_entity", False))
+        user_rep_name = str(ai_data.get("user_replacement_npc_name") or "").strip()
+        user_rep_hint = None
+        if user_rep_name:
+            user_rep_hint = f"已识别到卡片中涉及原玩家生态位的设定，并自动具象化为具名 NPC【{user_rep_name}】注入关系网与人设中。"
+
+        # 收集顶级 world_npcs 列表（全量世界书配角提取通道）
+        raw_world_npcs: List[DetectedRelationship] = []
+        raw_world_npcs_data = ai_data.get("world_npcs") or ai_data.get("npcs") or []
+        for wn in raw_world_npcs_data:
+            if isinstance(wn, dict) and wn.get("npc_name"):
+                w_name = str(wn["npc_name"]).strip()
+                if w_name:
+                    raw_world_npcs.append(
+                        DetectedRelationship(
+                            npc_name=w_name,
+                            relation_type=str(wn.get("relation_type") or "关联者").strip(),
+                            affinity=max(0, min(100, int(wn.get("affinity", 50)))),
+                            summary=str(wn.get("summary") or "").strip(),
+                        )
+                    )
+
         raw_entities = ai_data.get("entities", [])
         if not raw_entities or not isinstance(raw_entities, list):
             # 若 entities 为空，构造基于卡片主体的单实体
             raw_entities = [{
                 "name": main_name,
                 "role": "漫游者",
+                "gender": "保密",
+                "birthday": "",
+                "appearance": "",
                 "persona_summary": full_persona_text,
                 "inner_drive": "探寻自身与旧势力的羁绊真相，并在动荡危机中维持生存与秩序。",
                 "chronotype": "昼夜无律型",
@@ -306,20 +444,38 @@ class IngestionService:
                 "environment_tolerance": "隐蔽安全居所",
                 "sleep_trigger_summary": "依现场危险程度与生理消耗动态休眠",
                 "initial_location": "长宁市古董街老宅正堂",
-                "initial_virtual_time": "晨光月 1日 08:00",
+                "initial_virtual_time": "2024年10月9日 08:00",
                 "initial_health": 100,
                 "initial_stamina": 90,
                 "initial_psychological_state": "警惕且冷静",
                 "initial_inventory": ["随身物件"],
                 "initial_goals": ["审视四周环境安全"],
+                "relationships": [],
             }]
 
         entities: List[DetectedEntity] = []
         for e in raw_entities:
             c_name = e.get("name") or main_name
             c_role = e.get("role") or "候选主角"
+            c_gender = str(e.get("gender") or "保密").strip()
+            c_birthday = str(e.get("birthday") or "").strip()
+            c_appearance = str(e.get("appearance") or "").strip()
+
             c_persona = e.get("persona_summary") or full_persona_text
+            # 兜底替换可能遗留的 {{user}}
+            if user_rep_name:
+                c_persona = c_persona.replace("{{user}}", user_rep_name).replace("{{USER}}", user_rep_name)
+            c_persona = cls.decouple_user_dependency(c_persona)
+
+            # 彻底清洗可能残留的旧式【基础档案】与【性格与处世】标签，专注纯净性格特质，绝不重复拼接档案
+            c_persona = re.sub(r"^【基础档案】[^\n]*\n*", "", c_persona).strip()
+            c_persona = re.sub(r"^【性格与处世】\s*", "", c_persona).strip()
+
             c_drive = e.get("inner_drive") or "在动荡危机中维持生存与秩序。"
+            if user_rep_name:
+                c_drive = c_drive.replace("{{user}}", user_rep_name).replace("{{USER}}", user_rep_name)
+            c_drive = cls.decouple_user_dependency(c_drive)
+
             circ = CircadianProfile(
                 chronotype=e.get("chronotype", "昼夜无律型"),
                 typical_rest_window=e.get("typical_rest_window", "01:00 - 08:00"),
@@ -331,22 +487,45 @@ class IngestionService:
             if not re.search(r"\d{1,2}:\d{2}", raw_time_str):
                 norm_time = "2024年10月9日 20:00"
             elif not re.search(r"\d{1,2}日", raw_time_str) and not re.search(r"[初|十|廿|卅][一|二|三|四|五|六|七|八|九|十]", raw_time_str):
-                # 提取时分部分
                 tf = re.search(r"(\d{1,2}:\d{2})", raw_time_str).group(1)
                 norm_time = f"2024年10月9日 {tf}"
             else:
                 norm_time = raw_time_str
+
+            # 整理该实体专属的个性化 relationships
+            entity_npcs: List[DetectedRelationship] = []
+            raw_rels = e.get("relationships", [])
+
+            for r in raw_rels:
+                if isinstance(r, dict) and r.get("npc_name"):
+                    r_name = str(r["npc_name"]).strip()
+                    if r_name and r_name != c_name:
+                        # 清理可能误带的标签
+                        r_summary = re.sub(r"^【基础档案】[^\n]*\n*", "", str(r.get("summary") or "")).strip()
+                        r_summary = re.sub(r"^【性格与处世】\s*", "", r_summary).strip()
+                        entity_npcs.append(
+                            DetectedRelationship(
+                                npc_name=r_name,
+                                relation_type=r.get("relation_type", "关联者"),
+                                affinity=max(0, min(100, int(r.get("affinity", 50)))),
+                                summary=r_summary,
+                            )
+                        )
 
             entities.append(
                 DetectedEntity(
                     entity_id=f"ent_{uuid.uuid4().hex[:8]}",
                     name=c_name,
                     title=c_role,
+                    gender=c_gender,
+                    birthday=c_birthday,
+                    appearance=c_appearance,
                     avatar_url=avatar_data_url or "",
                     persona_summary=c_persona,
                     inner_drive=c_drive,
                     circadian_profile=circ,
                     relationships_with_others="",
+                    relationships=entity_npcs,
                     initial_location=e.get("initial_location") or "长宁市古董街老宅正堂",
                     initial_virtual_time=norm_time,
                     initial_health=int(e.get("initial_health", 100)),
@@ -357,38 +536,162 @@ class IngestionService:
                 )
             )
 
-        # 整理 NPC 关系网
-        detected_npcs: List[DetectedRelationship] = []
-        for npc in ai_data.get("npcs", []):
-            if isinstance(npc, dict) and npc.get("npc_name"):
-                detected_npcs.append(
+        # 全局 NPC 三位一体聚合防御与平等深度双轨标准对齐：
+        # 全局 NPC 三位一体聚合防御与平等深度双轨标准对齐：
+        # （无论原角色是并列主要角色还是世界书NPC，所有NPC必须平等深度描写，杜绝单句敷衍与厚此薄彼）
+        all_entity_map = {ent.name: ent for ent in entities}
+        raw_world_npc_map = {wn.npc_name: wn for wn in raw_world_npcs}
+
+        for ent in entities:
+            # 1. 深度对齐已有关系的双轨标准：
+            # 无论目标 NPC 是原卡并列主要角色、世界书配角还是替代 user 的 NPC，均自动合成【客观生平画像 + 主视角专属态度】
+            for r in ent.relationships:
+                raw_s = (r.summary or "").strip()
+                if r.npc_name in all_entity_map:
+                    other_ent = all_entity_map[r.npc_name]
+                    other_persona = (other_ent.persona_summary or "").strip()
+                    if other_persona:
+                        already_has_persona = (
+                            other_persona[:25] in raw_s
+                            or (len(raw_s) >= 180 and ("【" in raw_s or other_ent.name in raw_s[:25]))
+                        )
+                        if not already_has_persona:
+                            if raw_s:
+                                if "【对该角色的态度与羁绊】" not in raw_s and "【态度】" not in raw_s:
+                                    r.summary = f"{other_persona}\n\n【对该角色的态度与羁绊】：{raw_s}"
+                                else:
+                                    r.summary = f"{other_persona}\n\n{raw_s}"
+                            else:
+                                r.summary = f"{other_persona}\n\n【对该角色的态度与羁绊】：同行同伴，在动荡的世界中共处并维系着深层羁绊。"
+                elif r.npc_name in raw_world_npc_map:
+                    wn = raw_world_npc_map[r.npc_name]
+                    wn_desc = (wn.summary or "").strip()
+                    if wn_desc and raw_s:
+                        already_has_desc = (
+                            wn_desc[:25] in raw_s
+                            or (len(raw_s) >= 180 and ("【" in raw_s or wn.npc_name in raw_s[:25]))
+                        )
+                        if not already_has_desc:
+                            if "【对该角色的态度与羁绊】" not in raw_s and "【态度】" not in raw_s:
+                                r.summary = f"{wn_desc}\n\n【对该角色的态度与羁绊】：{raw_s}"
+                            else:
+                                r.summary = f"{wn_desc}\n\n{raw_s}"
+
+            existing_npc_names = {r.npc_name for r in ent.relationships}
+
+            # 2. 补全其他未被当前实体包含的主要候选角色实体（作为同行者/搭档）
+            for other_name, other_ent in all_entity_map.items():
+                if other_name != ent.name and other_name not in existing_npc_names:
+                    # 采用完整的客观画像 + 同行者专属羁绊态度，杜绝缺失与厚此薄彼
+                    ent.relationships.append(
+                        DetectedRelationship(
+                            npc_name=other_name,
+                            relation_type=other_ent.title or "同行者",
+                            affinity=50,
+                            summary=f"{other_ent.persona_summary.strip()}\n\n【对该角色的态度与羁绊】：同处一处的同行同伴，彼此性格与处事风格各异，维系着基本的同伴羁绊。",
+                        )
+                    )
+                    existing_npc_names.add(other_name)
+
+            # 3. 补全世界书提取出的全部 NPC (world_npcs)，防止世界书配角因模型注意力遗漏
+            for wn in raw_world_npcs:
+                if wn.npc_name != ent.name and wn.npc_name not in existing_npc_names:
+                    base_summary = (wn.summary or "").strip()
+                    full_wn_summary = (
+                        f"{base_summary}\n\n【对该角色的态度与羁绊】：世界中的已知关联人物，维持着常规的社交往来。"
+                        if base_summary
+                        else "世界中的已知关联人物，维持着常规的社交往来。"
+                    )
+                    ent.relationships.append(
+                        DetectedRelationship(
+                            npc_name=wn.npc_name,
+                            relation_type=wn.relation_type or "世界关联者",
+                            affinity=wn.affinity if wn.affinity is not None else 50,
+                            summary=full_wn_summary,
+                        )
+                    )
+                    existing_npc_names.add(wn.npc_name)
+
+            # 4. 补全具象化替代 user 的生态位 NPC
+            if user_rep_name and user_rep_name != ent.name and user_rep_name not in existing_npc_names:
+                ent.relationships.append(
                     DetectedRelationship(
-                        npc_name=npc["npc_name"],
-                        relation_type=npc.get("relation_type", "关联者"),
-                        affinity=int(npc.get("affinity", 50)),
-                        summary=npc.get("summary", ""),
+                        npc_name=user_rep_name,
+                        relation_type="重要同行者",
+                        affinity=60,
+                        summary="原设定中与主角群存在重要社会生态位羁绊的角色，现已具象化为世界独立成员，与主角共同面对风波。\n\n【对该角色的态度与羁绊】：与主角维系着深层信赖与默契配合。",
+                    )
+                )
+                existing_npc_names.add(user_rep_name)
+
+        # 构建原始条目的编号与标题映射表（用于精准取回高保真原生正文）
+        raw_index_map = {i + 1: e for i, e in enumerate(raw_entries_list)}
+        raw_title_map = {str(e.get("title", "")).strip(): e for e in raw_entries_list if e.get("title")}
+
+        # 整理保留的世界书条目并执行严格规整（杜绝常驻+触发词矛盾）
+        lores: List[WorldLoreInput] = []
+        for lore in ai_data.get("kept_lores", []):
+            if isinstance(lore, dict):
+                e_idx = lore.get("entry_index")
+                title = str(lore.get("title") or "").strip()
+                cat = str(lore.get("category") or "static").strip().lower()
+                trig_keys = str(lore.get("trigger_keys") or "").strip()
+
+                # 优先获取匹配的原始条目
+                matched_raw = None
+                if isinstance(e_idx, int) and e_idx in raw_index_map:
+                    matched_raw = raw_index_map[e_idx]
+                elif title and title in raw_title_map:
+                    matched_raw = raw_title_map[title]
+
+                # 内容确定性：若 AI 返回了非空 content 则使用，否则从原始清洗条目中高保真挂载原生正文
+                final_content = str(lore.get("content") or "").strip()
+                if not final_content and matched_raw:
+                    final_content = str(matched_raw.get("content") or "").strip()
+                final_title = title or (matched_raw.get("title") if matched_raw else "世界法则")
+
+                if not final_content:
+                    continue
+
+                # 必须对最终入库的正文深度清洗，并彻底解耦 {{user}} 与替换具象化 NPC 姓名！
+                final_content = cls.clean_text_artifacts(final_content, main_name)
+                if user_rep_name:
+                    final_content = final_content.replace("{{user}}", user_rep_name).replace("{{USER}}", user_rep_name)
+                    final_content = final_content.replace("<user>", user_rep_name).replace("{user}", user_rep_name)
+                final_content = cls.decouple_user_dependency(final_content)
+                final_content = re.sub(r"\{\{user\}\}", user_rep_name or "旧友", final_content, flags=re.IGNORECASE)
+                final_content = re.sub(r"\{\{USER\}\}", user_rep_name or "旧友", final_content)
+
+                if cat == "static":
+                    trig_keys = ""
+                else:
+                    cat = "dynamic"
+                    if not trig_keys:
+                        if final_title and len(final_title) < 20 and not any(kw in final_title for kw in ["设定", "世界观", "法则", "背景"]):
+                            trig_keys = final_title
+                        else:
+                            cat = "static"
+                            trig_keys = ""
+
+                lores.append(
+                    WorldLoreInput(
+                        title=final_title,
+                        category=cat,
+                        trigger_keys=trig_keys,
+                        content=final_content,
                     )
                 )
 
-        # 整理保留的世界书条目（剔除了状态栏与已被提炼为 NPC 的条目）
-        lores: List[WorldLoreInput] = []
-        for lore in ai_data.get("kept_lores", []):
-            if isinstance(lore, dict) and lore.get("content"):
-                lores.append(
-                    WorldLoreInput(
-                        title=lore.get("title", "世界法则"),
-                        category=lore.get("category", "static"),
-                        trigger_keys=lore.get("trigger_keys", ""),
-                        content=lore.get("content", ""),
-                    )
-                )
+        # 顶层 detected_relationships 赋予首个实体的完整关系列表（已聚合其他主角 + 全量世界书 NPC + user替代NPC）
+        top_relationships = entities[0].relationships if entities else raw_world_npcs
 
         return CardParseResponse(
             is_multi_entity=is_multi or len(entities) > 1,
             detected_entities=entities,
-            detected_relationships=detected_npcs,
+            detected_relationships=top_relationships,
             total_lore_entries=len(lores),
             lores=lores,
+            user_replacement_hint=user_rep_hint,
             raw_preview={
                 "name": main_name,
                 "first_mes": cleaned_first[:300],

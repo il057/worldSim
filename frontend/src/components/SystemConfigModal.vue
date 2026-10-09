@@ -203,6 +203,23 @@
           />
         </div>
 
+        <!-- 8. 推演正文流式输出 (Pass 2 流式打印开关) -->
+        <div class="stream-toggle-row neu-inset-sm">
+          <div class="stream-info">
+            <div class="stream-title">
+              <Icon icon="material-symbols:stream" class="stream-icon" />
+              <span>推演正文实时流式呈现 (Pass 2 流式打字)</span>
+            </div>
+            <span class="stream-hint">
+              开启后，Pass 2 文学撰写时正文将实时流式呈现在故事切片卡片中；关闭后则等待完整生成后单次呈现。
+            </span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="form.enable_stream_display" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
         <!-- 底部动作按钮 -->
         <div class="modal-actions">
           <NeuButton
@@ -232,6 +249,7 @@ import NeuButton from './NeuButton.vue'
 import NeuSlider from './NeuSlider.vue'
 import { apiClient } from '../api/client'
 import { useToast } from '../composables/useToast'
+import { useWorldStore } from '../stores/world'
 
 const props = defineProps<{
   isOpen: boolean
@@ -242,6 +260,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const worldStore = useWorldStore()
 const config = ref<any>({})
 const isSaving = ref(false)
 const isFetchingModels = ref(false)
@@ -261,6 +280,7 @@ const form = reactive({
   llm_presence_penalty: 0.0,
   llm_top_p: 1.0,
   realtime_tick_hours: 1,
+  enable_stream_display: true,
 })
 
 const fetchConfig = async () => {
@@ -275,6 +295,10 @@ const fetchConfig = async () => {
     form.llm_presence_penalty = res.data.llm_presence_penalty ?? 0.0
     form.llm_top_p = res.data.llm_top_p ?? 1.0
     form.realtime_tick_hours = res.data.realtime_tick_hours ?? 1
+    form.enable_stream_display =
+      res.data.enable_stream_display !== false && res.data.enable_stream_display !== 'false'
+
+    worldStore.setEnableStreamDisplay(form.enable_stream_display)
 
     // 若系统已有配置且已有有效 Key，尝试自动拉取一次模型列表
     if (res.data.has_api_key && modelsList.value.length === 0) {
@@ -355,8 +379,10 @@ const handleSave = async () => {
       llm_presence_penalty: form.llm_presence_penalty,
       llm_top_p: form.llm_top_p,
       realtime_tick_hours: form.realtime_tick_hours,
+      enable_stream_display: form.enable_stream_display,
     })
-    toast.showSuccess('配置已成功保存', 'LLM 运行期参数与采样配置已持久化至数据库并即时生效')
+    worldStore.setEnableStreamDisplay(form.enable_stream_display)
+    toast.showSuccess('配置已成功保存', 'LLM 运行期参数、流式开关与采样配置已持久化至数据库并即时生效')
     form.llm_api_key = ''
     await fetchConfig()
     emit('close')
@@ -625,6 +651,95 @@ const handleSave = async () => {
 .form-hint {
   font-size: 0.725rem;
   color: var(--neu-text-muted);
+}
+
+.stream-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border-radius: var(--neu-radius-sm, 8px);
+  gap: 1rem;
+  background: var(--neu-surface);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.stream-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stream-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--neu-text-primary);
+}
+
+.stream-icon {
+  font-size: 1.1rem;
+  color: var(--neu-accent);
+}
+
+.stream-hint {
+  font-size: 0.75rem;
+  color: var(--neu-text-secondary);
+  line-height: 1.4;
+}
+
+/* 拟物滑动开关 (Neu Toggle Switch) */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--neu-base);
+  box-shadow: inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light);
+  border-radius: 9999px;
+  transition: 0.3s;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 4px;
+  bottom: 4px;
+  background-color: #94a3b8;
+  border-radius: 50%;
+  box-shadow: 1px 1px 3px var(--neu-shadow-dark);
+  transition: 0.3s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(22px);
+  background-color: var(--neu-accent);
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
 }
 
 .modal-actions {

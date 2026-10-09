@@ -203,7 +203,7 @@
         </div>
 
         <!-- 小说正文切片流水 -->
-        <div v-if="worldStore.timeline.length" class="stream-card-list" ref="streamContainer">
+        <div v-if="worldStore.timeline.length || worldStore.streamingLog" class="stream-card-list" ref="streamContainer">
           <div
             v-for="(log, idx) in worldStore.timeline"
             :key="log.id"
@@ -212,7 +212,20 @@
           >
             <TimelineLogItem
               :log="log"
-              :is-latest="idx === worldStore.timeline.length - 1"
+              :is-latest="idx === worldStore.timeline.length - 1 && !worldStore.streamingLog"
+            />
+          </div>
+
+          <!-- 实时流式切片卡片 -->
+          <div
+            v-if="worldStore.streamingLog"
+            id="log-streaming"
+            class="log-anchor-wrapper"
+          >
+            <TimelineLogItem
+              :log="worldStore.streamingLog"
+              :is-latest="true"
+              :is-streaming="true"
             />
           </div>
         </div>
@@ -418,6 +431,13 @@ const scrollToTick = (logId: number) => {
 
 watch(
   () => worldStore.timeline.length,
+  () => {
+    scrollToBottom()
+  }
+)
+
+watch(
+  () => worldStore.streamingLog?.narrative_prose,
   () => {
     scrollToBottom()
   }

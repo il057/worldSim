@@ -269,6 +269,7 @@ def get_system_config(db: Session = Depends(get_db)):
         "llm_presence_penalty": float(cfg.get("llm_presence_penalty", "0.0")),
         "llm_top_p": float(cfg.get("llm_top_p", "1.0")),
         "realtime_tick_hours": int(cfg.get("realtime_tick_hours", "1")),
+        "enable_stream_display": cfg.get("enable_stream_display", "true").lower() == "true",
     }
 
 
@@ -309,6 +310,9 @@ def update_system_config(payload: Dict[str, Any], db: Session = Depends(get_db))
     if "realtime_tick_hours" in payload and payload["realtime_tick_hours"] is not None:
         updates["realtime_tick_hours"] = str(payload["realtime_tick_hours"])
         settings.REALTIME_TICK_HOURS = int(payload["realtime_tick_hours"])
+
+    if "enable_stream_display" in payload and payload["enable_stream_display"] is not None:
+        updates["enable_stream_display"] = "true" if payload["enable_stream_display"] else "false"
 
     save_system_configs(updates, db)
     return {"message": "系统配置已成功保存至数据库并即时生效"}

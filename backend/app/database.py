@@ -27,3 +27,22 @@ def get_db():
 def init_db():
     from app import models  # noqa: F401
     Base.metadata.create_all(bind=engine)
+
+    # 动态检测并自动补齐 SQLite 角色表字段（平滑数据迁移）
+    if settings.DATABASE_URL.startswith("sqlite"):
+        try:
+            with engine.connect() as conn:
+                from sqlalchemy import text
+                cursor = conn.execute(text("PRAGMA table_info(characters)"))
+                columns = [row[1] for row in cursor.fetchall()]
+                if columns:
+                    if "gender" not in columns:
+                        conn.execute(text("ALTER TABLE characters ADD COLUMN gender VARCHAR(32) DEFAULT '保密'"))
+                    if "birthday" not in columns:
+                        conn.execute(text("ALTER TABLE characters ADD COLUMN birthday VARCHAR(64) DEFAULT ''"))
+                    if "appearance" not in columns:
+                        conn.execute(text("ALTER TABLE characters ADD COLUMN appearance TEXT DEFAULT ''"))
+                    conn.commit()
+        except Exception as e:
+            import logging
+            logging.getLogger("world_sim.db").warning(f"SQLite 自动列补齐检测提示: {e}")

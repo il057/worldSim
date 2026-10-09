@@ -105,8 +105,13 @@ AI 开发者在实现前端组件时，应当采用组合式 API 与高复用模
    - 采用外凹槽内微凸渐变填充的形式，直观反映健康值（Health）与精力值（Stamina）。
 4. **`TimelineLogItem`（故事切片组件）**：
    - 专注于展现文学正文，正文必须通过 `v-for` 配合换行符自动切分为独立的自然段落（`<p class="prose-paragraph">`），每个段落具有 2em 首行缩进与独立段距（`margin-bottom: 0.85rem`），保留 `white-space: pre-wrap`，杜绝无换行文字墙；
-   - 默认折叠 Pass 1 裁决出的客观事实骨架（Plot Beat）与物品增减增量，点击可展开供查看或调试。
-5. **`NeuToast`（全局新拟态通知与错误指引组件）**：
+   - 默认折叠 Pass 1 裁决出的客观事实骨架（Plot Beat）与物品增减增量，点击可展开供查看或调试；
+   - 支持 `isStreaming` 实时流式打字机模式：显示呼吸灯状态徽章与闪烁打字光标（`typing-cursor`），正文实时随 Token 流追加并自动平滑向下滚动。
+5. **`LivingStateSheet` 社交关系 (NPC) 结构化展示规范**：
+   - 第一行：NPC 姓名与关系类型药丸徽章（`npc-relation-badge`）；
+   - 第二行：好感度独立行（`npc-affinity-row`），包含好感度数值与新拟态内凹进度槽（`affinity-bar-track` 与 `affinity-bar-fill`），进度条颜色根据好感分值自适应（高好感紫色/绿色，低好感预警黄色/红色）；
+   - 第三行：客观人设背景与特殊样式的【对该角色的态度与羁绊】独立高亮内嵌卡（`npc-attitude-card`），通过左侧主色边框与内凹暗影形成立体层次，拒绝拥挤与混淆。
+6. **`NeuToast`（全局新拟态通知与错误指引组件）**：
    - 遵循绝对无 Emoji 规范，所有状态指示均基于 `@iconify/vue`（`material-symbols` 图标）；
    - 采用右上方浮动式立体新拟态阴影卡片（`border-radius: 14px; box-shadow: 8px 8px 18px ...`）；
    - 根据推演引擎抛出的结构化 `error_code`（如 `AUTH_FAILED`, `RATE_LIMIT_OR_QUOTA`, `MODEL_NOT_FOUND`, `NETWORK_TIMEOUT`, `PASS1_FAILED`, `PASS2_FAILED` 等），向用户提供面向操作的清晰指引（如“检查 API 设置”、“点击重试”），隐藏底层晦涩堆栈，提升用户体验。

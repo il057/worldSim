@@ -61,6 +61,9 @@ async def import_card(req: CardImportRequest, db: Session = Depends(get_db)):
         name=selected.name,
         title=selected.title or "漫游者",
         avatar_url=selected.avatar_url,
+        gender=selected.gender or "保密",
+        birthday=selected.birthday or "",
+        appearance=selected.appearance or "",
         persona_summary=selected.persona_summary,
         inner_drive=selected.inner_drive,
         circadian_profile_json=selected.circadian_profile.model_dump_json(),
@@ -105,10 +108,11 @@ async def import_card(req: CardImportRequest, db: Session = Depends(get_db)):
             )
         )
 
-    # 注入 NPC 关系网（包含从世界书/卡片提取并通过前端确认的 NPC）
+    # 注入 NPC 关系网（优先采用前端微调传入的专属关系列表，其次采用选定实体的关系列表）
     persisted_npc_names = set()
-    for rel in req.relationships:
-        if rel.npc_name and rel.npc_name not in persisted_npc_names:
+    target_relationships = req.relationships if req.relationships else (selected.relationships or [])
+    for rel in target_relationships:
+        if rel.npc_name and rel.npc_name != selected.name and rel.npc_name not in persisted_npc_names:
             persisted_npc_names.add(rel.npc_name)
             db.add(
                 CharacterRelationship(
@@ -121,23 +125,30 @@ async def import_card(req: CardImportRequest, db: Session = Depends(get_db)):
                 )
             )
 
-    # 降维多人卡中未选中的次要主角实体为关联 NPC
+    # 降维多人卡中未选中的次要主角实体为关联 NPC（防漏保护，优先继承专属好感与评价）
     for entity in req.all_entities:
-        if entity.entity_id != selected.entity_id and entity.name not in persisted_npc_names:
+        if entity.entity_id != selected.entity_id and entity.name != selected.name and entity.name not in persisted_npc_names:
             persisted_npc_names.add(entity.name)
+            found_rel = next((r for r in (selected.relationships or []) if r.npc_name == entity.name), None)
+            rel_type = found_rel.relation_type if found_rel else "主要同行者"
+            rel_aff = found_rel.affinity if found_rel else 50
+            rel_sum = found_rel.summary if (found_rel and found_rel.summary) else entity.persona_summary
             db.add(
                 CharacterRelationship(
                     character_id=char_id,
                     npc_name=entity.name,
-                    relation_type="同行者",
-                    affinity=50,
-                    summary=entity.persona_summary[:300],
+                    relation_type=rel_type,
+                    affinity=rel_aff,
+                    summary=rel_sum,
                     is_present=0,
                 )
             )
 
     # 保存全量开局设置快照，供重置历史时 100% 还原开局原始生态
     initial_snapshot = {
+        "gender": selected.gender or "保密",
+        "birthday": selected.birthday or "",
+        "appearance": selected.appearance or "",
         "virtual_time": final_time,
         "location": final_location,
         "health": max(0, min(100, final_health)),

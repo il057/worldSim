@@ -13,6 +13,10 @@
         </span>
       </div>
       <div class="header-right">
+        <span v-if="isStreaming" class="streaming-pill neu-flat-xs">
+          <Icon icon="material-symbols:edit-note" class="streaming-icon pulse-anim" />
+          <span>实时流式生成中</span>
+        </span>
         <span class="location-text">
           <Icon icon="material-symbols:location-on" class="meta-icon" />
           {{ log.location }}
@@ -21,14 +25,21 @@
     </div>
 
     <!-- 纯文学正文流 (Pass 2) 自然段落排版 -->
-    <div class="log-prose prose-literary">
+    <div class="log-prose prose-literary" :class="{ 'is-streaming-text': isStreaming }">
       <p
         v-for="(para, pIdx) in paragraphs"
         :key="pIdx"
         class="prose-paragraph"
       >
-        {{ para }}
+        {{ para }}<span v-if="isStreaming && pIdx === paragraphs.length - 1" class="typing-cursor"></span>
       </p>
+
+      <!-- 流式等待起步时的占位打字机指示 -->
+      <div v-if="isStreaming && paragraphs.length === 0" class="streaming-placeholder">
+        <Icon icon="material-symbols:ink-pen" class="streaming-pen-icon" />
+        <span>Pass 2 正在以有限视角构思文学笔触...</span>
+        <span class="typing-cursor"></span>
+      </div>
     </div>
 
     <!-- Pass 1 客观事实骨架与增量检视器折叠面板 -->
@@ -114,6 +125,7 @@ import type { StoryLogView } from '../api/client'
 const props = defineProps<{
   log: StoryLogView
   isLatest?: boolean
+  isStreaming?: boolean
 }>()
 
 const isExpanded = ref(false)
@@ -142,6 +154,69 @@ const hasInventoryDelta = computed(() => {
   margin-bottom: 1.5rem;
   background: #f0f3f8;
   border-left: 4px solid var(--neu-accent);
+}
+
+.timeline-log-card.is-streaming {
+  border-left: 4px solid #3b82f6;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+}
+
+.streaming-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.725rem;
+  color: var(--neu-accent);
+  font-weight: 600;
+  background: var(--neu-base);
+  box-shadow: 1px 1px 3px var(--neu-shadow-dark), -1px -1px 3px var(--neu-shadow-light);
+}
+
+.streaming-icon {
+  font-size: 0.85rem;
+}
+
+.pulse-anim {
+  animation: pulse-ring 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse-ring {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.92); }
+}
+
+.typing-cursor {
+  display: inline-block;
+  width: 3px;
+  height: 1.1em;
+  background-color: var(--neu-accent);
+  vertical-align: -0.15em;
+  margin-left: 3px;
+  border-radius: 1px;
+  animation: cursor-blink 0.8s infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.streaming-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--neu-text-secondary);
+  font-style: italic;
+  padding: 0.5rem 0;
+}
+
+.streaming-pen-icon {
+  font-size: 1.05rem;
+  color: var(--neu-accent);
+  animation: pulse-ring 1.2s infinite ease-in-out;
 }
 
 .log-header {

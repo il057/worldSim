@@ -1,7 +1,8 @@
+import asyncio
 import json
 import logging
 import re
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 import httpx
 from app.config import settings
 
@@ -120,6 +121,8 @@ class LLMClient:
         frequency_penalty: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        stream: bool = True,
+        on_chunk: Optional[Callable[[str], Any]] = None,
     ) -> str:
         """调用兼容 OpenAI 规范的 Chat Completion 接口"""
         if not self.api_key or self.api_key.startswith("sk-xxxx"):
@@ -129,6 +132,8 @@ class LLMClient:
         headers = {
             "Authorization": f"Bearer {self.api_key.strip()}",
             "Content-Type": "application/json",
+            "Accept": "text/event-stream, application/json",
+            "User-Agent": "WorldSim-Engine/1.0",
         }
         eff_temp = temperature if temperature is not None else self.temperature
         eff_top_p = top_p if top_p is not None else self.top_p
@@ -142,6 +147,7 @@ class LLMClient:
             "top_p": eff_top_p,
             "frequency_penalty": eff_freq,
             "presence_penalty": eff_pres,
+            "stream": stream,
         }
         # 不写死 max_tokens：仅当明确指定时才传入
         if max_tokens is not None and max_tokens > 0:
@@ -149,45 +155,159 @@ class LLMClient:
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
 
-        try:
-            async with httpx.AsyncClient(timeout=90.0) as client:
-                res = await client.post(
-                    f"{self.base_url}/chat/completions",
-                    headers=headers,
-                    json=payload,
+        timeout_config = httpx.Timeout(timeout=300.0, connect=60.0, read=300.0, write=120.0, pool=60.0)
+        limits_config = httpx.Limits(max_keepalive_connections=5, max_connections=10, keepalive_expiry=60.0)
+
+        max_retries = 3
+        for attempt in range(max_retries):
+            has_received_data = False
+            content_parts: List[str] = []
+            try:
+                async with httpx.AsyncClient(timeout=timeout_config, limits=limits_config) as client:
+                    # 模式 A: 非流式单次标准请求 (如 Pass 1 理性因果裁决)
+                    if not stream:
+                        res = await client.post(
+                            f"{self.base_url}/chat/completions",
+                            headers=headers,
+                            json=payload,
+                        )
+                        if res.status_code != 200:
+                            err_body = res.text
+                            logger.error(
+                                f"[LLM 终端报错] 接口返回 HTTP {res.status_code}，模型: {self.model_name}，响应正文: {err_body}"
+                            )
+                            if res.status_code in (401, 403):
+                                raise LLMClientError("AUTH_FAILED", "API Key 鉴权失败或无权限", status_code=res.status_code, raw_error=err_body)
+                            elif res.status_code == 429:
+                                raise LLMClientError("RATE_LIMIT_OR_QUOTA", "API 额度耗尽或请求频次超限", status_code=res.status_code, raw_error=err_body)
+                            elif res.status_code == 404:
+                                raise LLMClientError("MODEL_NOT_FOUND", "未找到指定模型或 Base URL 路径错误", status_code=res.status_code, raw_error=err_body)
+                            else:
+                                raise LLMClientError("API_CALL_FAILED", f"API 调用异常 (HTTP {res.status_code})", status_code=res.status_code, raw_error=err_body)
+
+                        data = res.json()
+                        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                        if not content or not content.strip():
+                            raise LLMClientError("EMPTY_RESPONSE", "模型返回内容为空", status_code=502)
+                        return strip_emojis(content.strip())
+
+                    # 模式 B: SSE 实时流式传输 (如 Pass 2 文学正文流式打字输出)
+                    async with client.stream(
+                        "POST",
+                        f"{self.base_url}/chat/completions",
+                        headers=headers,
+                        json=payload,
+                    ) as res:
+                        if res.status_code != 200:
+                            err_bytes = await res.aread()
+                            err_body = err_bytes.decode("utf-8", errors="ignore")
+                            logger.error(
+                                f"[LLM 终端报错] 接口返回 HTTP {res.status_code}，模型: {self.model_name}，响应正文: {err_body}"
+                            )
+                            if res.status_code in (401, 403):
+                                raise LLMClientError("AUTH_FAILED", "API Key 鉴权失败或无权限", status_code=res.status_code, raw_error=err_body)
+                            elif res.status_code == 429:
+                                raise LLMClientError("RATE_LIMIT_OR_QUOTA", "API 额度耗尽或请求频次超限", status_code=res.status_code, raw_error=err_body)
+                            elif res.status_code == 404:
+                                raise LLMClientError("MODEL_NOT_FOUND", "未找到指定模型或 Base URL 路径错误", status_code=res.status_code, raw_error=err_body)
+                            else:
+                                raise LLMClientError("API_CALL_FAILED", f"API 调用异常 (HTTP {res.status_code})", status_code=res.status_code, raw_error=err_body)
+
+                        content_type = res.headers.get("content-type", "").lower()
+                        # 若服务商返回标准 application/json（非 SSE 流式），直接读取完整正文解析
+                        if "application/json" in content_type and "event-stream" not in content_type:
+                            raw_bytes = await res.aread()
+                            data = json.loads(raw_bytes.decode("utf-8", errors="ignore"))
+                            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                            if not content or not content.strip():
+                                raise LLMClientError("EMPTY_RESPONSE", "模型返回内容为空", status_code=502)
+                            return strip_emojis(content.strip())
+
+                        # 流式聚合解析（SSE）
+                        try:
+                            async for raw_line in res.aiter_lines():
+                                line = raw_line.strip()
+                                if not line:
+                                    continue
+                                if line.startswith("data:"):
+                                    data_str = line[5:].strip()
+                                    if data_str == "[DONE]":
+                                        break
+                                    try:
+                                        chunk = json.loads(data_str)
+                                        choices = chunk.get("choices", [])
+                                        if choices:
+                                            delta = choices[0].get("delta", {})
+                                            c = delta.get("content")
+                                            if c is None:
+                                                c = choices[0].get("message", {}).get("content")
+                                            if c:
+                                                content_parts.append(c)
+                                                has_received_data = True
+                                                if on_chunk:
+                                                    try:
+                                                        cb_res = on_chunk(c)
+                                                        if asyncio.iscoroutine(cb_res):
+                                                            await cb_res
+                                                    except Exception as cb_err:
+                                                        logger.warning(f"[LLM 流式回调异常] {cb_err}")
+                                    except Exception:
+                                        continue
+                        except (httpx.RemoteProtocolError, httpx.ReadError) as stream_err:
+                            logger.warning(f"[LLM 流式读取中途断开: {stream_err}] 已尝试保留已收到内容 ({len(content_parts)} 段)")
+
+                        full_content = "".join(content_parts).strip()
+                        if not full_content:
+                            logger.error(f"[LLM 终端报错] 模型流式返回内容为空")
+                            raise LLMClientError("EMPTY_RESPONSE", "模型返回内容为空", status_code=502)
+
+                        return strip_emojis(full_content)
+
+            except (httpx.ConnectTimeout, httpx.ConnectError) as e:
+                # 仅在尚未建立 TCP 连接或未传输任何数据时重试（0 消耗）
+                if not has_received_data and attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 1.5
+                    logger.warning(f"[LLM 客户端] 建立网络连接等待超时/失败 ({type(e).__name__}: {e})，正在自动重试 ({attempt + 1}/{max_retries})，等待 {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+                    continue
+                logger.error(f"[LLM 终端报错] 建立网络连接失败: {e}")
+                raise LLMClientError("NETWORK_ERROR", f"网络连接建立失败: {str(e)}", status_code=502, raw_error=str(e))
+            except httpx.RemoteProtocolError as e:
+                # 若已收到足够有效文本，即使最后关闭时有 TCP 协议断开也直接采纳结果
+                if content_parts:
+                    full_content = "".join(content_parts).strip()
+                    if full_content:
+                        logger.info(f"[LLM 客户端] 捕捉到末端协议断开，但已成功聚合完整正文 ({len(full_content)} 字)，采纳生成结果")
+                        return strip_emojis(full_content)
+
+                # 若在尚未收到任何数据时服务端掐断连接（如代理服务重置空闲连接），安全重试 1 次
+                if not has_received_data and attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 1.5
+                    logger.warning(f"[LLM 客户端] 握手期间服务端连接断开 ({e})，正在自动重试 ({attempt + 1}/{max_retries})，等待 {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+                    continue
+
+                logger.error(f"[LLM 终端报错] 服务端在响应期间断开连接 (RemoteProtocolError: {e})。")
+                raise LLMClientError(
+                    "NETWORK_DISCONNECTED",
+                    f"服务端在响应期间断开连接 ({str(e)})。已开启流式传输维持连接，请检查代理中转商服务稳定性。",
+                    status_code=502,
+                    raw_error=str(e),
                 )
-                if res.status_code != 200:
-                    err_body = res.text
-                    logger.error(
-                        f"[LLM 终端报错] 接口返回 HTTP {res.status_code}，模型: {self.model_name}，响应正文: {err_body}"
-                    )
-                    if res.status_code in (401, 403):
-                        raise LLMClientError("AUTH_FAILED", "API Key 鉴权失败或无权限", status_code=res.status_code, raw_error=err_body)
-                    elif res.status_code == 429:
-                        raise LLMClientError("RATE_LIMIT_OR_QUOTA", "API 额度耗尽或请求频次超限", status_code=res.status_code, raw_error=err_body)
-                    elif res.status_code == 404:
-                        raise LLMClientError("MODEL_NOT_FOUND", "未找到指定模型或 Base URL 路径错误", status_code=res.status_code, raw_error=err_body)
-                    else:
-                        raise LLMClientError("API_CALL_FAILED", f"API 调用异常 (HTTP {res.status_code})", status_code=res.status_code, raw_error=err_body)
-
-                data = res.json()
-                content = data["choices"][0]["message"]["content"]
-                if not content or not content.strip():
-                    logger.error(f"[LLM 终端报错] 模型返回内容为空，完整响应: {data}")
-                    raise LLMClientError("EMPTY_RESPONSE", "模型返回内容为空", status_code=502)
-
-                return strip_emojis(content.strip())
-        except httpx.TimeoutException as e:
-            logger.error(f"[LLM 终端报错] 请求连接超时 (90s): {e}")
-            raise LLMClientError("NETWORK_TIMEOUT", "网络请求超时，请检查接口服务状态", status_code=504, raw_error=str(e))
-        except httpx.RequestError as e:
-            logger.error(f"[LLM 终端报错] 网络连接失败: {e}")
-            raise LLMClientError("NETWORK_ERROR", f"网络连接错误: {str(e)}", status_code=502, raw_error=str(e))
-        except LLMClientError:
-            raise
-        except Exception as e:
-            logger.error(f"[LLM 终端报错] 未知异常: {type(e).__name__}: {e}", exc_info=True)
-            raise LLMClientError("API_CALL_FAILED", f"接口处理异常: {str(e)}", status_code=500, raw_error=str(e))
+            except httpx.ReadTimeout as e:
+                logger.error(f"[LLM 终端报错] 模型生成读取超时 (超过 300s): {e}。为防止重复计费已停止重试。")
+                raise LLMClientError("NETWORK_TIMEOUT", "模型生成耗时超过限制 (300s)，请检查接口服务状态或选择响应更快的模型", status_code=504, raw_error=str(e))
+            except httpx.TimeoutException as e:
+                logger.error(f"[LLM 终端报错] 网络请求超时: {e}")
+                raise LLMClientError("NETWORK_TIMEOUT", f"网络请求超时: {str(e)}", status_code=504, raw_error=str(e))
+            except httpx.RequestError as e:
+                logger.error(f"[LLM 终端报错] 网络连接失败: {e}")
+                raise LLMClientError("NETWORK_ERROR", f"网络连接错误: {str(e)}", status_code=502, raw_error=str(e))
+            except LLMClientError:
+                raise
+            except Exception as e:
+                logger.error(f"[LLM 终端报错] 未知异常: {type(e).__name__}: {e}", exc_info=True)
+                raise LLMClientError("API_CALL_FAILED", f"接口处理异常: {str(e)}", status_code=500, raw_error=str(e))
 
     def _fallback_completion(self, messages: List[Dict[str, str]], json_mode: bool) -> str:
         """兜底逻辑：仅在未配置任何 API Key 时提供纯本地初始测试数据"""

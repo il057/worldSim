@@ -8,7 +8,7 @@
 
 | 序号 | 规范文档路径 | 核心覆盖领域与关键决策点 | 适用开发场景与任务 |
 | :---: | :--- | :--- | :--- |
-| **01** | [01_INGESTION_PIPELINE.md](01_INGESTION_PIPELINE.md) | - 酒馆卡正则剥离（HTML/CSS/Scripts/宏标记）<br>- `{{user}}` 交互依赖解耦为内在执念<br>- 世界书全量保留与动态分类规则<br>- 多人卡 POV 主角单选与 NPC 关系降维<br>- 角色自适应作息画像（Circadian Profile）提取<br>- 4 维度极简表单 AI 标准化衍生 | 编写卡片解析服务、角色导入逻辑、Prompt 预处理、世界书入库过滤、简易表单创建端点时必读。 |
+| **01** | [01_INGESTION_PIPELINE.md](01_INGESTION_PIPELINE.md) | - 酒馆卡正则剥离（HTML/CSS/Scripts/宏标记）<br>- `{{user}}` 生态位具象化 NPC 替代与关系网注入<br>- 世界书全量保留与常驻/触发词严格区隔铁律<br>- 多人卡多实体人设/生理/专属 NPC 关系网绝对独立<br>- 角色自适应作息画像（Circadian Profile）提取<br>- 4 维度极简表单 AI 标准化衍生 | 编写卡片解析服务、角色导入逻辑、Prompt 预处理、世界书入库过滤、简易表单创建端点时必读。 |
 | **02** | [02_DUAL_CLOCK_ENGINE.md](02_DUAL_CLOCK_ENGINE.md) | - 双轨时钟引擎架构（现实时间同步 vs 沙盒自由推演）<br>- APScheduler 1 小时自动定时器调度<br>- 精力条（Stamina）+ 作息画像 + 环境安全度的三维睡眠裁决树<br>- 离线长跨度两阶段折叠补偿算法<br>- 纯按钮控制沙盒步进（+1h, +6h, +24h）<br>- AI 自主构思突发事件机制与并发互斥锁 | 编写后台定时调度器、时钟步进服务、睡眠裁决逻辑、长间隔补偿计算以及并发安全控制时必读。 |
 | **03** | [03_TWO_PASS_TICK_PIPELINE.md](03_TWO_PASS_TICK_PIPELINE.md) | - 双步推演管线架构（Pass 1 裁决机 vs Pass 2 叙事机）<br>- Pass 1 严格结构化 State Delta JSON 输出规范<br>- Pass 2 第三人称有限视角纯文学规范<br>- 酒馆级 11 种文风框架（东方留白/冷峻白描/意识流/王家卫/奇幻等）<br>- 6 组文学技法补丁（白描特化/活人对话/通感/反总结抒情等）<br>- 篇幅与字数控制档位（300~1200+字精细控制）<br>- 60k Token 架构下的三层高保真长程记忆模型<br>- Deep Working Buffer 注入规则与倒排索引召回 | 编写推演核心管线、设计 LLM Prompt 提示词、制定 Pydantic 输出契约、实现长程记忆与文风字数调优时必读。 |
 | **04** | [04_DATA_SCHEMA_AND_API.md](04_DATA_SCHEMA_AND_API.md) | - SQLite 6 张核心数据表 DDL（含系统配置持久化、自适应作息、完整世界书）<br>- 纯按钮控制的 RESTful API 契约（`/api/v1`）<br>- 动态拉取模型接口契约（`/characters/system/fetch-models`）<br>- 状态查询、长卷流水拉取、单步步进与阶段快进接口<br>- AI 自主突发事件触发接口（无用户文本输入） | 设计数据库实体模型（SQLAlchemy/SQLModel）、编写 Alembic 迁移脚本、开发 FastAPI 路由端点时必读。 |

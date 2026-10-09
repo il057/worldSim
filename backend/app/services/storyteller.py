@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, Callable, Any
 from sqlalchemy.orm import Session
 from app.models import Character, CharacterState
 from app.schemas import ArbitratorDelta, SimulationPromptConfig
@@ -26,6 +26,7 @@ class StorytellerService:
         state: CharacterState,
         delta: ArbitratorDelta,
         config: Optional[SimulationPromptConfig] = None,
+        on_chunk: Optional[Callable[[str], Any]] = None,
     ) -> str:
         """
         Pass 2: 场景小说生成器 (Storyteller Engine)
@@ -104,6 +105,7 @@ class StorytellerService:
                     {"role": "user", "content": user_prompt},
                 ],
                 json_mode=False,
+                on_chunk=on_chunk,
             )
             cleaned_prose = strip_emojis(prose.strip())
             if not cleaned_prose:
