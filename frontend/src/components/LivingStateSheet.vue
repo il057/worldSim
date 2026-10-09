@@ -1,0 +1,522 @@
+<template>
+  <div class="living-state-sheet">
+    <!-- 角色基础卡片 -->
+    <NeuCard class="profile-card" variant="flat">
+      <div class="profile-header">
+        <div class="avatar-box neu-inset-sm">
+          <img
+            v-if="character?.avatar_url"
+            :src="character.avatar_url"
+            class="avatar-img"
+            alt="avatar"
+          />
+          <Icon v-else icon="material-symbols:account-circle" class="avatar-icon" />
+        </div>
+        <div class="profile-title-group">
+          <h2 class="char-name">{{ character?.name || '未选定角色' }}</h2>
+          <span class="char-title neu-flat-sm">
+            <Icon icon="material-symbols:badge" class="mini-icon" />
+            {{ character?.title || '漫游者' }}
+          </span>
+        </div>
+      </div>
+
+      <div class="inner-drive-box neu-inset-sm">
+        <div class="drive-label">
+          <Icon icon="material-symbols:psychology" class="drive-icon" />
+          <span>核心内在执念</span>
+        </div>
+        <p class="drive-text">{{ character?.inner_drive || '暂无终极动机记录' }}</p>
+      </div>
+
+      <div class="persona-box">
+        <div class="persona-text" :class="{ 'is-collapsed': !isPersonaExpanded && isLongPersona }">
+          <p>{{ character?.persona_summary }}</p>
+        </div>
+        <button
+          v-if="isLongPersona"
+          type="button"
+          class="expand-persona-btn"
+          @click="isPersonaExpanded = !isPersonaExpanded"
+        >
+          <Icon :icon="isPersonaExpanded ? 'material-symbols:expand-less' : 'material-symbols:expand-more'" class="btn-icon" />
+          <span>{{ isPersonaExpanded ? '收起完整设定' : '展开查看完整人设' }}</span>
+        </button>
+      </div>
+    </NeuCard>
+
+    <!-- 生理指标与作息看板 -->
+    <NeuCard class="vitals-card" variant="flat">
+      <div class="section-title">
+        <Icon icon="material-symbols:vital-signs" class="title-icon" />
+        <span>生理与即时节律</span>
+      </div>
+
+      <div class="meters-container">
+        <!-- 健康值 -->
+        <NeuMeter
+          label="健康值"
+          :value="state?.health ?? 100"
+          color="var(--neu-success)"
+          icon="material-symbols:favorite"
+          :sub-text="getHealthStatus(state?.health ?? 100)"
+        />
+
+        <!-- 精力值 -->
+        <NeuMeter
+          label="精力值"
+          :value="state?.stamina ?? 90"
+          :color="getStaminaColor(state?.stamina ?? 90)"
+          icon="material-symbols:bolt"
+          :sub-text="getStaminaStatus(state?.stamina ?? 90)"
+        />
+      </div>
+
+      <!-- 当前睡眠与节律状态 -->
+      <div class="sleep-status-pill neu-inset-sm">
+        <Icon
+          :icon="state?.is_sleeping ? 'material-symbols:bedtime' : 'material-symbols:timelapse'"
+          class="sleep-icon"
+          :class="{ 'sleeping-pulse': state?.is_sleeping }"
+        />
+        <div class="sleep-info">
+          <span class="sleep-title">
+            {{ state?.is_sleeping ? '深度就寝中 (精力加速恢复)' : '清醒行动中' }}
+          </span>
+          <span class="sleep-sub">
+            作息倾向: {{ character?.circadian_profile?.chronotype }} ({{ character?.circadian_profile?.typical_rest_window }})
+          </span>
+        </div>
+      </div>
+
+      <!-- 心理情绪 -->
+      <div class="mood-box">
+        <span class="mood-label">即时心理:</span>
+        <span class="mood-value">{{ state?.psychological_state || '平静' }}</span>
+      </div>
+    </NeuCard>
+
+    <!-- 随身背包 -->
+    <NeuCard class="inventory-card" variant="flat">
+      <div class="section-title">
+        <Icon icon="material-symbols:inventory-2" class="title-icon" />
+        <span>随身背包物品 ({{ inventory.length }})</span>
+      </div>
+
+      <div v-if="inventory.length" class="inventory-chips">
+        <span
+          v-for="(item, idx) in inventory"
+          :key="idx"
+          class="item-chip neu-flat-sm"
+        >
+          <Icon icon="material-symbols:circle" class="chip-dot" />
+          {{ item }}
+        </span>
+      </div>
+      <div v-else class="empty-hint">背包空无一物</div>
+    </NeuCard>
+
+    <!-- 当前目标栈 -->
+    <NeuCard class="goals-card" variant="flat">
+      <div class="section-title">
+        <Icon icon="material-symbols:flag" class="title-icon" />
+        <span>当前推进目标栈</span>
+      </div>
+
+      <div v-if="activeGoals.length" class="goals-list">
+        <div
+          v-for="(goal, idx) in activeGoals"
+          :key="idx"
+          class="goal-item neu-inset-sm"
+        >
+          <span class="goal-num">{{ idx + 1 }}</span>
+          <span class="goal-desc">{{ goal }}</span>
+        </div>
+      </div>
+      <div v-else class="empty-hint">暂无紧迫短期目标</div>
+    </NeuCard>
+
+    <!-- 降维 NPC 关系网 -->
+    <NeuCard v-if="relationships.length" class="relationships-card" variant="flat">
+      <div class="section-title">
+        <Icon icon="material-symbols:groups" class="title-icon" />
+        <span>社交关系 ({{ relationships.length }})</span>
+      </div>
+      <div class="npc-list">
+        <div
+          v-for="npc in relationships"
+          :key="npc.id"
+          class="npc-item neu-flat-sm"
+        >
+          <div class="npc-header">
+            <span class="npc-name">{{ npc.npc_name }}</span>
+            <span class="npc-relation">{{ npc.relation_type }} (好感: {{ npc.affinity }})</span>
+          </div>
+          <p class="npc-summary">{{ npc.summary }}</p>
+        </div>
+      </div>
+    </NeuCard>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { Icon } from '@iconify/vue'
+import NeuCard from './NeuCard.vue'
+import NeuMeter from './NeuMeter.vue'
+import type {
+  CharacterDetailView,
+  CharacterStateView,
+} from '../api/client'
+
+const props = defineProps<{
+  character: CharacterDetailView | null
+  state: CharacterStateView | null
+}>()
+
+const isPersonaExpanded = ref(false)
+const isLongPersona = computed(() => {
+  return (props.character?.persona_summary?.length || 0) > 180
+})
+
+const inventory = computed(() => props.state?.inventory || [])
+const activeGoals = computed(() => props.state?.active_goals || [])
+const relationships = computed(() => props.character?.relationships || [])
+
+const getHealthStatus = (val: number) => {
+  if (val > 80) return '健全'
+  if (val > 50) return '擦伤轻度受创'
+  return '危重衰竭'
+}
+
+const getStaminaStatus = (val: number) => {
+  if (val > 70) return '充沛'
+  if (val > 30) return '轻微疲乏'
+  if (val > 15) return '极度疲惫'
+  return '濒临昏厥'
+}
+
+const getStaminaColor = (val: number) => {
+  if (val > 60) return 'var(--neu-accent)'
+  if (val > 25) return 'var(--neu-warning)'
+  return 'var(--neu-danger)'
+}
+</script>
+
+<style scoped>
+.living-state-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.avatar-box {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--neu-accent);
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-icon {
+  font-size: 2.25rem;
+}
+
+.profile-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.char-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--neu-text-primary);
+}
+
+.char-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--neu-text-secondary);
+  align-self: flex-start;
+}
+
+.mini-icon {
+  font-size: 0.85rem;
+}
+
+.inner-drive-box {
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.drive-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--neu-accent);
+}
+
+.drive-icon {
+  font-size: 0.95rem;
+}
+
+.drive-text {
+  font-size: 0.825rem;
+  color: var(--neu-text-primary);
+  line-height: 1.45;
+}
+
+.persona-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.persona-text {
+  font-size: 0.8rem;
+  color: var(--neu-text-secondary);
+  line-height: 1.55;
+  white-space: pre-line;
+  word-break: break-word;
+  transition: all 0.25s ease;
+}
+
+.persona-text.is-collapsed {
+  max-height: 120px;
+  overflow: hidden;
+  position: relative;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 60%, rgba(0, 0, 0, 0) 100%);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 60%, rgba(0, 0, 0, 0) 100%);
+}
+
+.expand-persona-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--neu-accent);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  align-self: flex-start;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.expand-persona-btn:hover {
+  background: rgba(79, 70, 229, 0.08);
+}
+
+.expand-persona-btn .btn-icon {
+  font-size: 0.95rem;
+}
+
+.vitals-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--neu-text-primary);
+}
+
+.title-icon {
+  font-size: 1.1rem;
+  color: var(--neu-accent);
+}
+
+.meters-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sleep-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+}
+
+.sleep-icon {
+  font-size: 1.35rem;
+  color: var(--neu-accent);
+}
+
+.sleeping-pulse {
+  color: #8b5cf6;
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.sleep-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.sleep-title {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--neu-text-primary);
+}
+
+.sleep-sub {
+  font-size: 0.725rem;
+  color: var(--neu-text-muted);
+}
+
+.mood-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.mood-label {
+  color: var(--neu-text-secondary);
+  font-weight: 500;
+}
+
+.mood-value {
+  color: var(--neu-text-primary);
+  font-weight: 600;
+}
+
+.inventory-card, .goals-card, .relationships-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.inventory-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.item-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+  color: var(--neu-text-primary);
+}
+
+.chip-dot {
+  font-size: 0.45rem;
+  color: var(--neu-accent);
+}
+
+.goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.goal-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.goal-num {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--neu-accent);
+  margin-top: 0.1rem;
+}
+
+.goal-desc {
+  font-size: 0.8rem;
+  color: var(--neu-text-primary);
+  line-height: 1.4;
+}
+
+.npc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.npc-item {
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.npc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.npc-name {
+  font-weight: 600;
+  color: var(--neu-text-primary);
+}
+
+.npc-relation {
+  font-size: 0.725rem;
+  color: var(--neu-accent);
+}
+
+.npc-summary {
+  font-size: 0.75rem;
+  color: var(--neu-text-secondary);
+}
+
+.empty-hint {
+  font-size: 0.8rem;
+  color: var(--neu-text-muted);
+  font-style: italic;
+  padding: 0.25rem 0;
+}
+</style>

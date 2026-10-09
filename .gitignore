@@ -1,0 +1,105 @@
+# ==========================================
+# 游戏世界模拟系统 (worldSim) .gitignore
+# ==========================================
+
+# ------------------------------------------
+# 数据库与世界存档 (Database & World Saves)
+# ------------------------------------------
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.dump
+*.bak
+world_sim.db
+**/world_sim.db
+saves/
+**/saves/
+data/
+**/data/
+
+# ------------------------------------------
+# 环境变量与敏感配置 (Environment & Secrets)
+# ------------------------------------------
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ------------------------------------------
+# Python 虚拟环境与运行时产物
+# ------------------------------------------
+venv/
+.venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ------------------------------------------
+# 前端依赖与打包产物 (Node & Frontend)
+# ------------------------------------------
+node_modules/
+**/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+backend/static/assets/
+backend/static/*.js
+backend/static/*.css
+backend/static/*.map
+backend/static/index.html
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ------------------------------------------
+# 日志与临时文件 (Logs & Temp Files)
+# ------------------------------------------
+logs/
+**/logs/
+*.log
+tmp/
+**/tmp/
+temp/
+**/temp/
+
+# ------------------------------------------
+# 编辑器与操作系统 (IDEs & OS Files)
+# ------------------------------------------
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.sw?
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+.DS_Store
+Thumbs.db

@@ -1,0 +1,19 @@
+services:
+  worldsim:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: world_sim_engine
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - worldsim_data:/data
+    env_file:
+      - .env
+    environment:
+      - PORT=8080
+      - DATABASE_URL=sqlite:////data/world_sim.db
+
+volumes:
+  worldsim_data:
