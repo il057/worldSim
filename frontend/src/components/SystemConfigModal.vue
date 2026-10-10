@@ -11,7 +11,8 @@
         </button>
       </div>
 
-      <div class="status-summary neu-flat-sm">
+      <div class="modal-scroll-body">
+        <div class="status-summary neu-flat-sm">
         <span class="status-badge" :class="config.has_api_key ? 'is-configured' : 'is-mock'">
           <Icon :icon="config.has_api_key ? 'material-symbols:check-circle' : 'material-symbols:info'" />
           {{ config.has_api_key ? '已连接模型服务' : '本地规则演示模式 (未配置 API 密钥)' }}
@@ -94,30 +95,13 @@
             <Icon icon="material-symbols:psychology" class="label-icon" />
             推演模型选择
           </label>
-          <div class="select-container">
-            <select
-              v-model="form.llm_model_name"
-              class="neu-select neu-inset-sm"
-              required
-            >
-              <option v-if="!modelsList.length && !form.llm_model_name" disabled value="">
-                -- 请先点击上方【拉取可用模型】按钮 --
-              </option>
-              <option
-                v-if="form.llm_model_name && !modelsList.includes(form.llm_model_name)"
-                :value="form.llm_model_name"
-              >
-                {{ form.llm_model_name }} (当前已存配置)
-              </option>
-              <option
-                v-for="modelId in modelsList"
-                :key="modelId"
-                :value="modelId"
-              >
-                {{ modelId }}
-              </option>
-            </select>
-          </div>
+          <NeuSelect
+            v-model="form.llm_model_name"
+            :options="modelSelectOptions"
+            placeholder="-- 请点击上方【拉取可用模型】按钮选择模型 --"
+            searchable
+            icon="material-symbols:smart-toy"
+          />
           <span class="form-hint">
             {{ modelsList.length > 0 ? `已获取 ${modelsList.length} 个可用模型` : '请点击上方按钮自动拉取接口支持的模型' }}
           </span>
@@ -254,16 +238,18 @@
           />
         </div>
       </form>
-    </NeuCard>
-  </div>
+    </div>
+  </NeuCard>
+</div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, watch } from 'vue'
+import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import NeuCard from './NeuCard.vue'
 import NeuButton from './NeuButton.vue'
 import NeuSlider from './NeuSlider.vue'
+import NeuSelect from './NeuSelect.vue'
 import { apiClient } from '../api/client'
 import { useToast } from '../composables/useToast'
 import { useWorldStore } from '../stores/world'
@@ -283,6 +269,16 @@ const isSaving = ref(false)
 const isFetchingModels = ref(false)
 const showKey = ref(false)
 const modelsList = ref<string[]>([])
+const modelSelectOptions = computed(() => {
+  const list = [...modelsList.value]
+  if (form.llm_model_name && !list.includes(form.llm_model_name)) {
+    return [
+      { label: `${form.llm_model_name} (当前已存配置)`, value: form.llm_model_name, badge: '当前' },
+      ...list.map((m) => ({ label: m, value: m })),
+    ]
+  }
+  return list.map((m) => ({ label: m, value: m }))
+})
 const fetchStatusText = ref('点击右侧按钮测试并获取模型')
 const fetchSuccess = ref(false)
 const fetchError = ref(false)
@@ -340,7 +336,7 @@ watch(() => props.isOpen, (open) => {
 // 拉取模型列表
 const handleFetchModels = async (silent = false) => {
   if (!form.llm_base_url) {
-    if (!silent) alert('请先填入 LLM Base URL 接口地址')
+    if (!silent) toast.show({ type: 'warning', title: '缺少接口地址', description: '请先填入 LLM Base URL 接口地址' })
     return
   }
 
@@ -374,7 +370,7 @@ const handleFetchModels = async (silent = false) => {
     const errMsg = err.response?.data?.detail || err.message || '拉取模型失败'
     fetchStatusText.value = `拉取失败: ${errMsg}`
     if (!silent) {
-      alert(`拉取模型失败: ${errMsg}`)
+      toast.show({ type: 'error', title: '拉取模型失败', description: errMsg })
     }
   } finally {
     isFetchingModels.value = false
@@ -383,7 +379,7 @@ const handleFetchModels = async (silent = false) => {
 
 const handleSave = async () => {
   if (!form.llm_model_name) {
-    alert('请先选择或拉取推演模型')
+    toast.show({ type: 'warning', title: '缺少模型配置', description: '请先选择或拉取推演模型' })
     return
   }
 
@@ -470,17 +466,50 @@ const handleSave = async () => {
   width: 100%;
   max-width: 580px;
   background: #f0f3f8;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: 88vh;
+  overflow: hidden; /* 保证圆角完全不受外部滚动条穿透破坏 */
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
+}
+
+.modal-scroll-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-right: 0.35rem;
+  padding-bottom: 0.5rem;
+  /* 柔和精致的内置微型滚动条，绝不外露于 modal 之外 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(196, 201, 212, 0.55) transparent;
+}
+
+.modal-scroll-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.modal-scroll-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-scroll-body::-webkit-scrollbar-thumb {
+  background: rgba(196, 201, 212, 0.55);
+  border-radius: 999px;
+}
+
+.modal-scroll-body::-webkit-scrollbar-thumb:hover {
+  background: var(--neu-text-secondary);
 }
 
 .header-title {

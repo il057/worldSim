@@ -96,6 +96,10 @@ import NeuCard from './NeuCard.vue'
 import NeuButton from './NeuButton.vue'
 import { apiClient } from '../api/client'
 
+import { useToast } from '../composables/useToast'
+
+const toast = useToast()
+
 const props = defineProps<{
   isOpen: boolean
 }>()
@@ -119,10 +123,15 @@ const handleSubmit = async () => {
   isSubmitting.value = true
   try {
     const res = await apiClient.generateQuickCharacter(form)
+    toast.showSuccess(`角色【${form.name}】已成功衍生并创建！`)
     emit('created', res.data.character_id)
     emit('close')
   } catch (err: any) {
-    alert(`创建失败: ${err.message}`)
+    toast.show({
+      type: 'error',
+      title: '创建失败',
+      description: err.message || '网络或推演服务发生异常'
+    })
   } finally {
     isSubmitting.value = false
   }

@@ -224,6 +224,19 @@ CREATE TABLE IF NOT EXISTS system_configs (
 #### POST `/api/v1/characters/{character_id}/lores`
 - **功能**：录入自定义世界书条目（分类、触发词、标题与完整内容）。
 
+#### PUT `/api/v1/characters/{character_id}/lores/{lore_id}`
+- **功能**：编辑与更新指定世界书条目（可修改分类、触发词、标题、设定正文及激活状态）。
+- **请求体（Request Body）**：
+```json
+{
+  "category": "static", // 或 "dynamic"
+  "trigger_keys": "核心,工坊", // 动态关键词
+  "title": "更新后的条目标题",
+  "content": "更新后的完整世界观背景正文...",
+  "is_active": 1
+}
+```
+
 #### DELETE `/api/v1/characters/{character_id}/lores/{lore_id}`
 - **功能**：删除指定世界书条目。
 

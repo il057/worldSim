@@ -288,12 +288,10 @@
               <div class="form-row">
                 <div class="form-field">
                   <label>节律倾向</label>
-                  <select v-model="activeEntity.circadian_profile.chronotype" class="neu-input">
-                    <option value="夜行型">夜行型 (昼伏夜出)</option>
-                    <option value="早起型">早起型 (晨昏规律)</option>
-                    <option value="昼夜无律型">昼夜无律型 (随性而定)</option>
-                    <option value="无休眠体质">无休眠体质 (非人/不死/机械)</option>
-                  </select>
+                  <NeuSelect
+                    v-model="activeEntity.circadian_profile.chronotype"
+                    :options="chronotypeOptions"
+                  />
                 </div>
                 <div class="form-field">
                   <label>常规休眠倾向窗口</label>
@@ -476,14 +474,12 @@
                     class="neu-input lore-title-input"
                     placeholder="条目标题（如：末法时代）"
                   />
-                  <select
+                  <NeuSelect
                     v-model="lore.category"
-                    class="neu-input lore-cat-select"
+                    :options="loreCategoryOptions"
+                    class="lore-cat-select"
                     @change="onLoreCategoryChange(lore)"
-                  >
-                    <option value="static">静态常驻世界观 (全局加载)</option>
-                    <option value="dynamic">动态关键词触发 (按词激活)</option>
-                  </select>
+                  />
                 </div>
                 <button
                   type="button"
@@ -544,6 +540,8 @@ import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import NeuCard from './NeuCard.vue'
 import NeuButton from './NeuButton.vue'
+import NeuSelect from './NeuSelect.vue'
+import { useToast } from '../composables/useToast'
 import { apiClient } from '../api/client'
 import type {
   CardParseResponse,
@@ -551,6 +549,20 @@ import type {
   DetectedRelationship,
   WorldLoreInput,
 } from '../api/client'
+
+const toast = useToast()
+
+const chronotypeOptions = [
+  { label: '夜行型 (昼伏夜出)', value: '夜行型' },
+  { label: '早起型 (晨昏规律)', value: '早起型' },
+  { label: '昼夜无律型 (随性而定)', value: '昼夜无律型' },
+  { label: '无休眠体质 (非人/不死/机械)', value: '无休眠体质' },
+]
+
+const loreCategoryOptions = [
+  { label: '静态常驻世界观 (全局加载)', value: 'static' },
+  { label: '动态关键词触发 (按词激活)', value: 'dynamic' },
+]
 
 const props = defineProps<{
   isOpen: boolean
@@ -605,7 +617,11 @@ const handleFileUpload = async (e: Event) => {
     }
     activeTab.value = 'persona'
   } catch (err: any) {
-    alert(`解析失败: ${err.response?.data?.detail || err.message}`)
+    toast.show({
+      type: 'error',
+      title: '角色卡解析失败',
+      description: err.response?.data?.detail || err.message,
+    })
   } finally {
     isParsing.value = false
   }
@@ -724,11 +740,16 @@ const handleImport = async () => {
       initial_inventory: activeEntity.value.initial_inventory,
       initial_goals: activeEntity.value.initial_goals,
     })
+    toast.showSuccess(`角色【${activeEntity.value.name}】及世界设定已成功导入！`)
     emit('imported', res.data.character_id)
     emit('close')
     resetAll()
   } catch (err: any) {
-    alert(`导入落库失败: ${err.response?.data?.detail || err.message}`)
+    toast.show({
+      type: 'error',
+      title: '导入落库失败',
+      description: err.response?.data?.detail || err.message,
+    })
   } finally {
     isImporting.value = false
   }
@@ -1380,7 +1401,8 @@ const handleImport = async () => {
 }
 
 .lore-cat-select {
-  width: 190px;
+  width: 230px;
+  flex-shrink: 0;
 }
 
 .lore-status-pill {

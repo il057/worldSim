@@ -216,7 +216,7 @@
             </NeuCard>
 
             <!-- 文学叙事正文提示词 -->
-            <NeuCard class="prompt-card mt-3" variant="flat">
+            <NeuCard class="prompt-card" variant="flat">
               <div class="card-header">
                 <span class="card-tag neu-flat-sm">
                   <Icon icon="material-symbols:auto-stories" class="tag-icon" />
@@ -261,6 +261,7 @@ import { Icon } from '@iconify/vue'
 import NeuCard from './NeuCard.vue'
 import NeuButton from './NeuButton.vue'
 import type { SimulationPromptConfig } from '../api/client'
+import { useToast } from '../composables/useToast'
 
 defineProps<{
   isOpen: boolean
@@ -270,6 +271,7 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
+const toast = useToast()
 const activeTab = ref<'style' | 'word_count' | 'raw_prompts'>('style')
 
 // ==============================================================================
@@ -517,7 +519,7 @@ const saveConfig = () => {
   localStorage.setItem('custom_pass1_prompt', pass1Prompt.value)
   localStorage.setItem('custom_pass2_prompt', pass2Prompt.value)
 
-  alert('文风与提示词配置已成功保存！后续所有步进与推演均将按此规则执行。')
+  toast.showSuccess('提示词配置已保存', '后续所有步进与推演均将按此规则执行。')
   emit('close')
 }
 
@@ -536,7 +538,7 @@ const resetToDefaults = () => {
   localStorage.removeItem('custom_pass1_prompt')
   localStorage.removeItem('custom_pass2_prompt')
 
-  alert('已重置为系统默认出厂文风与提示词！')
+  toast.showSuccess('已恢复系统预设', '文风与演化提示词已重置为出厂默认设置。')
 }
 </script>
 
@@ -655,8 +657,28 @@ const resetToDefaults = () => {
 .modal-scroll-area {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
-  padding-right: 0.4rem;
+  padding: 0.35rem 0.65rem 1.25rem 0.65rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(196, 201, 212, 0.55) transparent;
+}
+
+.modal-scroll-area::-webkit-scrollbar {
+  width: 5px;
+}
+
+.modal-scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-scroll-area::-webkit-scrollbar-thumb {
+  background: rgba(196, 201, 212, 0.55);
+  border-radius: 999px;
+}
+
+.modal-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: var(--neu-text-secondary);
 }
 
 .modal-body {
@@ -1007,11 +1029,19 @@ const resetToDefaults = () => {
   line-height: 1.45;
 }
 
-/* 提示词输入框 */
+/* 底层提示词输入区域 (确保充足呼吸间距，杜绝双向阴影被外层裁切) */
+.prompt-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.35rem 0.45rem 1.5rem 0.45rem;
+}
+
 .prompt-card {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  padding: 1.15rem;
 }
 
 .card-header {

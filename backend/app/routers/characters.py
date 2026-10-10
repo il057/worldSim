@@ -244,6 +244,44 @@ def create_character_lore(character_id: str, payload: Dict[str, Any], db: Sessio
     return {"id": lore.id, "message": "世界书条目已保存"}
 
 
+@router.put("/{character_id}/lores/{lore_id}")
+def update_character_lore(character_id: str, lore_id: int, payload: Dict[str, Any], db: Session = Depends(get_db)):
+    """更新/编辑世界书条目"""
+    lore = (
+        db.query(WorldLore)
+        .filter(
+            WorldLore.id == lore_id,
+            (WorldLore.character_id == character_id) | (WorldLore.character_id.is_(None)),
+        )
+        .first()
+    )
+    if not lore:
+        raise HTTPException(status_code=404, detail="世界书条目不存在")
+
+    if "category" in payload and payload["category"] is not None:
+        lore.category = payload["category"]
+    if "trigger_keys" in payload and payload["trigger_keys"] is not None:
+        lore.trigger_keys = payload["trigger_keys"]
+    if "title" in payload and payload["title"] is not None:
+        lore.title = payload["title"]
+    if "content" in payload and payload["content"] is not None:
+        lore.content = payload["content"]
+    if "is_active" in payload and payload["is_active"] is not None:
+        lore.is_active = payload["is_active"]
+
+    db.commit()
+    db.refresh(lore)
+    return {
+        "id": lore.id,
+        "category": lore.category,
+        "trigger_keys": lore.trigger_keys,
+        "title": lore.title,
+        "content": lore.content,
+        "is_active": lore.is_active,
+        "message": "世界书条目已更新",
+    }
+
+
 @router.delete("/{character_id}/lores/{lore_id}")
 def delete_character_lore(character_id: str, lore_id: int, db: Session = Depends(get_db)):
     """删除世界书条目"""

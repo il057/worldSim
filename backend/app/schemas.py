@@ -52,6 +52,14 @@ class WorldLoreInput(BaseModel):
     content: str
 
 
+class WorldLoreUpdate(BaseModel):
+    category: Optional[str] = None  # static | dynamic
+    trigger_keys: Optional[str] = None
+    title: Optional[str] = None
+    content: Optional[str] = None
+    is_active: Optional[int] = None
+
+
 class CardParseResponse(BaseModel):
     is_multi_entity: bool
     detected_entities: List[DetectedEntity]

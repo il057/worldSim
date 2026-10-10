@@ -374,6 +374,9 @@
 
     <!-- 新拟态全局 Toast 消息通知 -->
     <NeuToast />
+
+    <!-- 新拟态全局 Confirm 操作确认弹窗 -->
+    <NeuConfirmModal />
   </div>
 </template>
 
@@ -390,9 +393,14 @@ import QuickCharacterModal from './components/QuickCharacterModal.vue'
 import CardImportModal from './components/CardImportModal.vue'
 import IncidentTriggerModal from './components/IncidentTriggerModal.vue'
 import NeuToast from './components/NeuToast.vue'
+import NeuConfirmModal from './components/NeuConfirmModal.vue'
 import { useWorldStore } from './stores/world'
+import { useConfirm } from './composables/useConfirm'
+import { useToast } from './composables/useToast'
 
 const worldStore = useWorldStore()
+const { confirm } = useConfirm()
+const toast = useToast()
 
 // 抽屉与模态状态
 const isLeftDrawerOpen = ref(window.innerWidth >= 1280) // 桌面宽屏默认打开左侧
@@ -492,17 +500,32 @@ const handleCharacterCreated = async (characterId: string) => {
 }
 
 const handleDeleteCharacter = async (char: any) => {
-  const confirmed = confirm(
-    `确定要彻底删除角色【${char.name}】吗？\n\n该操作将永久删除此角色的全部推演故事切片、即时机能状态、世界书专属法则与关系网，不可恢复！`
-  )
+  const confirmed = await confirm({
+    title: '彻底删除角色',
+    message: `确定要彻底删除角色【${char.name}】吗？\n\n该操作将永久删除此角色的全部推演故事切片、即时机能状态、世界书专属法则与关系网，不可恢复！`,
+    confirmText: '彻底删除',
+    cancelText: '取消',
+    variant: 'danger',
+    icon: 'material-symbols:delete-forever',
+  })
   if (confirmed) {
     await worldStore.deleteCharacter(char.id)
+    toast.showSuccess('角色已删除', `角色【${char.name}】及其全部数据已彻底清理。`)
   }
 }
 
 const handleReset = async () => {
-  if (confirm('确定要重置当前角色的推演世界吗？历史小说切片将被清空。')) {
+  const confirmed = await confirm({
+    title: '重置推演世界',
+    message: '确定要重置当前角色的推演世界吗？历史小说切片将被清空，状态回滚至开局处境。',
+    confirmText: '重置世界',
+    cancelText: '取消',
+    variant: 'warning',
+    icon: 'material-symbols:restart-alt',
+  })
+  if (confirmed) {
     await worldStore.resetWorld()
+    toast.showSuccess('世界已重置', '推演长卷与即时状态已回滚至初始世界。')
   }
 }
 </script>

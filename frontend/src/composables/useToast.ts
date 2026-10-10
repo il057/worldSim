@@ -122,7 +122,7 @@ export function useToast() {
     })
   }
 
-  const showSuccess = (title: string, description: string) => {
+  const showSuccess = (title: string, description: string = '') => {
     return show({
       type: 'success',
       title,

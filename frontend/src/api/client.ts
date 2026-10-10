@@ -358,6 +358,12 @@ export const apiClient = {
   getLores: (characterId: string) => api.get<any[]>(`/characters/${characterId}/lores`),
   createLore: (characterId: string, payload: { category: string; trigger_keys?: string; title: string; content: string }) =>
     api.post<{ id: number; message: string }>(`/characters/${characterId}/lores`, payload),
+  updateLore: (
+    characterId: string,
+    loreId: number,
+    payload: { category?: string; trigger_keys?: string; title?: string; content?: string; is_active?: number }
+  ) =>
+    api.put<{ id: number; message: string }>(`/characters/${characterId}/lores/${loreId}`, payload),
   deleteLore: (characterId: string, loreId: number) =>
     api.delete<{ message: string }>(`/characters/${characterId}/lores/${loreId}`),
 
