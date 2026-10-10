@@ -4,7 +4,7 @@
       <div class="modal-header">
         <div class="header-title">
           <Icon icon="material-symbols:menu-book" class="title-icon" />
-          <h3>世界书与法则条目 (WorldBook)</h3>
+          <h3>世界书与法则条目</h3>
         </div>
         <div class="header-actions">
           <NeuButton
@@ -20,7 +20,7 @@
       </div>
 
       <p class="panel-desc">
-        容纳完整酒馆世界书，无字数压榨截断。静态世界书常驻生效，动态条目根据地点与关键词自动激活。
+        管理当前世界的背景法则与设定。常驻条目全局生效，动态条目根据情境关键词自动激活。
       </p>
 
       <!-- 搜索筛选 -->

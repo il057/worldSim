@@ -120,7 +120,7 @@
     <NeuCard class="goals-card" variant="flat">
       <div class="section-title">
         <Icon icon="material-symbols:flag" class="title-icon" />
-        <span>当前推进目标栈</span>
+        <span>当前行动目标</span>
       </div>
 
       <div v-if="activeGoals.length" class="goals-list">

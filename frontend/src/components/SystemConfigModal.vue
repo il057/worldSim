@@ -14,7 +14,7 @@
       <div class="status-summary neu-flat-sm">
         <span class="status-badge" :class="config.has_api_key ? 'is-configured' : 'is-mock'">
           <Icon :icon="config.has_api_key ? 'material-symbols:check-circle' : 'material-symbols:info'" />
-          {{ config.has_api_key ? '已接入第三方 LLM API (SQLite 持久化)' : '本地规则引擎模式 (未配置 Key)' }}
+          {{ config.has_api_key ? '已连接模型服务' : '本地规则演示模式 (未配置 API 密钥)' }}
         </span>
         <span v-if="config.api_key_masked" class="key-preview">
           Key: {{ config.api_key_masked }}
@@ -22,7 +22,7 @@
       </div>
 
       <p class="panel-desc">
-        配置兼容 OpenAI 标准协议的接口服务（兼容 Claude, OpenAI, DeepSeek, Qwen 等供应商）。配置直接持久化至数据库。
+        配置模型接口服务（支持 DeepSeek、OpenAI、Claude、Qwen 等主流模型）。配置将自动保存。
       </p>
 
       <form class="config-form" @submit.prevent="handleSave">
@@ -44,7 +44,7 @@
         <div class="form-group">
           <label>
             <Icon icon="material-symbols:key" class="label-icon" />
-            LLM API Key
+            API 密钥 (API Key)
           </label>
           <div class="input-with-action">
             <input
@@ -92,7 +92,7 @@
         <div class="form-group">
           <label>
             <Icon icon="material-symbols:psychology" class="label-icon" />
-            推演模型选择 (Model Name)
+            推演模型选择
           </label>
           <div class="select-container">
             <select
@@ -130,10 +130,10 @@
             :min="512"
             :max="2000000"
             :step="512"
-            label="上下文上限 Token (Context Window)"
+            label="上下文长度上限"
             unit="Tokens"
             icon="material-symbols:memory"
-            hint="限制推演送入大模型的最大上下文容量 (范围 512 ~ 2,000,000 Tokens)"
+            hint="限制推演单次送入模型的最大上下文容量"
           />
         </div>
 
@@ -191,7 +191,7 @@
         <div class="form-group">
           <label>
             <Icon icon="material-symbols:timelapse" class="label-icon" />
-            真实时钟演化步长 (小时/Tick)
+            现实同步演化步长 (小时/次)
           </label>
           <input
             type="number"
@@ -203,15 +203,15 @@
           />
         </div>
 
-        <!-- 8. 推演正文流式输出 (Pass 2 流式打印开关) -->
+        <!-- 8. 推演正文流式输出 -->
         <div class="stream-toggle-row neu-inset-sm">
           <div class="stream-info">
             <div class="stream-title">
               <Icon icon="material-symbols:stream" class="stream-icon" />
-              <span>推演正文实时流式呈现 (Pass 2 流式打字)</span>
+              <span>推演正文实时打字效果</span>
             </div>
             <span class="stream-hint">
-              开启后，Pass 2 文学撰写时正文将实时流式呈现在故事切片卡片中；关闭后则等待完整生成后单次呈现。
+              开启后，故事正文将以打字机动效实时呈现；关闭后则在生成完成后一次性显示。
             </span>
           </div>
           <label class="toggle-switch">
@@ -225,10 +225,10 @@
           <div class="stream-info">
             <div class="stream-title">
               <Icon icon="material-symbols:phone-iphone" class="stream-icon" />
-              <span>手机与社交网络交互拟真 (Phone & Social Mode)</span>
+              <span>手机与社交网络拟真</span>
             </div>
             <span class="stream-hint">
-              开启后，Pass 2 将注入手机与社交交互提示词，角色在适宜情境下可使用手机收发即时消息、语音、定位、转账，或浏览/发布朋友圈动态与网络论坛/社区热帖，并在时间线中渲染拟真卡片。
+              开启后，角色在适宜情境下可使用手机收发即时消息、语音、转账，或浏览发布朋友圈与论坛热帖，以拟真卡片呈现。
             </span>
           </div>
           <label class="toggle-switch">

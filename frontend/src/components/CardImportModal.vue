@@ -12,7 +12,7 @@
       </div>
 
       <p class="modal-subtitle">
-        已自动清洗酒馆 HTML 杂质、剥离前端状态栏宏并解耦 <span v-pre>{{user}}</span> 依赖。在正式落库前，您可自由审查并调整角色人设、生理状态、NPC 关系网及世界书。
+        已自动解析角色卡设定。在正式开启推演前，您可以审查并调整角色人设、初始状态、人际关系与世界书。
       </p>
 
       <!-- 步骤 1: 上传解析 -->
@@ -24,10 +24,10 @@
             :class="{ spin: isParsing }"
           />
           <span class="upload-text">
-            {{ isParsing ? '正在智能解析卡片、提取作息画像与 NPC 关系网...' : '点击选择或拖拽酒馆角色卡 (JSON 或 PNG 角色卡图片)' }}
+            {{ isParsing ? '正在智能解析卡片与人物关系...' : '点击选择或拖拽角色卡 (支持 JSON 与带卡图 PNG)' }}
           </span>
           <span class="upload-subtext">
-            支持多人卡自动识别世界书角色；若上传 PNG，将自动提取内嵌数据并保留高清头像
+            支持多人卡自动识别；若上传角色卡图片，将自动提取内嵌数据并保留头像
           </span>
           <input
             type="file"
@@ -52,7 +52,7 @@
           <div class="pov-header">
             <span class="section-label">
               <Icon icon="material-symbols:person-pin" class="label-icon" />
-              推演主视角主角 (POV Protagonist)
+              推演主视角主角
               <span v-if="parsedData.is_multi_entity" class="multi-tag neu-flat-sm">多人卡已识别</span>
             </span>
             <span class="meta-hint">
@@ -192,7 +192,7 @@
                 <input v-model="activeEntity.gender" class="neu-input" placeholder="如：男 / 女 / 非二元 / 未知" />
               </div>
               <div class="form-field">
-                <label>诞生时间 / 生日 (动态推演周岁基岩)</label>
+                <label>出生日期 / 生日</label>
                 <input v-model="activeEntity.birthday" class="neu-input" placeholder="如：2007年3月15日 或 天禧二年五月初三" />
               </div>
             </div>
@@ -203,19 +203,19 @@
             </div>
 
             <div class="form-field">
-              <label>核心内在执念 (Inner Drive)</label>
+              <label>核心内在执念</label>
               <textarea
                 v-model="activeEntity.inner_drive"
                 class="neu-input drive-textarea"
                 rows="2"
-                placeholder="角色不可磨灭的深层心理诉求与行动终极目标"
+                placeholder="角色深层心理诉求与行动终极目标"
               ></textarea>
             </div>
 
             <div class="form-field">
               <div class="field-label-group">
-                <label>全量人设总述 (Persona Summary)</label>
-                <span class="field-hint">已保留卡片全量背景、性格与习惯，无字数截断限制</span>
+                <label>角色人设总述</label>
+                <span class="field-hint">已完整载入背景与性格设定</span>
               </div>
               <textarea
                 v-model="activeEntity.persona_summary"
@@ -283,7 +283,7 @@
             <div class="form-box neu-inset-sm">
               <div class="box-title">
                 <Icon icon="material-symbols:bedtime" class="mini-icon" />
-                自适应作息画像 (Circadian Profile)
+                日常作息习惯
               </div>
               <div class="form-row">
                 <div class="form-field">
@@ -449,7 +449,7 @@
         <div v-show="activeTab === 'lores'" class="tab-content">
           <div class="tab-top-actions">
             <span class="tab-summary-hint">
-              已滤除酒馆状态栏与元指令，保留 {{ editableLores.length }} 条世界观法则（可自由调整常驻或关键词触发）
+              已保留 {{ editableLores.length }} 条世界观法则（可自由调整常驻生效或关键词触发）
             </span>
             <NeuButton
               type="button"
@@ -460,7 +460,7 @@
           </div>
 
           <div v-if="editableLores.length === 0" class="empty-hint neu-inset-sm">
-            本角色卡未挂载独立世界书，或所有前端指令已被清理。可点击上方按钮添加法则。
+            本角色卡未包含世界书设定，可点击上方按钮手动添加。
           </div>
 
           <div class="lores-list">
@@ -517,7 +517,7 @@
           </div>
         </div>
 
-        <!-- 底部落库操作栏 -->
+        <!-- 底部操作栏 -->
         <div class="modal-actions">
           <NeuButton
             type="button"
@@ -528,7 +528,7 @@
           <NeuButton
             type="button"
             icon="material-symbols:check-circle"
-            label="确认全部设定并落库生成世界"
+            label="确认设定并开启世界"
             variant="accent"
             :loading="isImporting"
             @click="handleImport"

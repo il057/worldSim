@@ -12,14 +12,14 @@
       </div>
 
       <p class="modal-subtitle">
-        仅需提供 4 个核心维度，AI 将一次性衍生出完整的角色执念、自适应作息画像与开局处境。
+        仅需提供基础设定，AI 将自动补全角色的生活作息、深层执念与初始处境。
       </p>
 
       <form class="modal-form" @submit.prevent="handleSubmit">
         <div class="form-group">
           <label>
             <Icon icon="material-symbols:person" class="label-icon" />
-            角色姓名 (Name)
+            角色姓名
           </label>
           <input
             v-model="form.name"
@@ -32,7 +32,7 @@
         <div class="form-group">
           <label>
             <Icon icon="material-symbols:badge" class="label-icon" />
-            社会身份 / 职业 (Role)
+            社会身份 / 职业
           </label>
           <input
             v-model="form.role"
@@ -45,7 +45,7 @@
         <div class="form-group">
           <label>
             <Icon icon="material-symbols:psychology" class="label-icon" />
-            性格底色与准则 (Archetype)
+            性格底色与处事风格
           </label>
           <input
             v-model="form.archetype"
@@ -58,7 +58,7 @@
         <div class="form-group">
           <label>
             <Icon icon="material-symbols:crisis-alert" class="label-icon" />
-            开局微观处境 (Initial Situation)
+            开局处境与遭遇
           </label>
           <textarea
             v-model="form.initial_situation"
@@ -79,7 +79,7 @@
           <NeuButton
             type="submit"
             icon="material-symbols:auto-awesome"
-            label="立即一键衍生"
+            label="一键创建角色"
             variant="accent"
             :loading="isSubmitting"
           />

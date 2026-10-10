@@ -172,16 +172,16 @@ export const useWorldStore = defineStore('world', {
 
       let defaultStatus = '推演进行中...'
       if (actionType === 'step') {
-        defaultStatus = `正在推演演化 (${params.hours || 1}h)...`
+        defaultStatus = `正在推进时间 (${params.hours || 1}h)...`
       } else if (actionType === 'continue') {
-        defaultStatus = 'AI 正在自主研判时间切速并续写前文...'
+        defaultStatus = '正在续写故事历程...'
       } else if (actionType === 'fastForward') {
         const span = params.stepType === 'hour_6' ? '+6h 阶段快进' : '+24h 跨日跃迁'
         defaultStatus = `正在执行 ${span}...`
       } else if (actionType === 'triggerIncident') {
         defaultStatus = params.incidentDescription
-          ? '正在将自定义突发事件注入裁决...'
-          : 'AI 正在结合世界观构思突发事件并注入裁决...'
+          ? '正在融入突发事件...'
+          : '正在构思突发事件...'
       }
       this.tickStatusText = defaultStatus
 

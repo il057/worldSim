@@ -13,7 +13,7 @@
       </div>
 
       <p class="panel-desc">
-        系统基于两步解耦世界演化管线（Two-Pass Pipeline）：Pass 1 衡律之神专司冷峻因果与生理节律，Pass 2 见证之神专司第三人称有限视角沉浸编织。目光完全注视于主角肉身与世界运转。
+        定制世界演化的叙事风格、文学技法与生成篇幅。系统将以沉浸的第三人称视角，细腻呈现主角在世界中的真实遭遇与生活轨迹。
       </p>
 
       <!-- 导航分栏 Tabs (固定) -->
@@ -23,7 +23,7 @@
           @click="activeTab = 'style'"
         >
           <Icon icon="material-symbols:palette" class="tab-icon" />
-          <span>文风框架与技法补丁 (12种)</span>
+          <span>叙事文风与文学技法</span>
         </button>
         <button
           :class="['tab-btn', { active: activeTab === 'word_count' }]"
@@ -37,7 +37,7 @@
           @click="activeTab = 'raw_prompts'"
         >
           <Icon icon="material-symbols:terminal" class="tab-icon" />
-          <span>底座两步系统提示词</span>
+          <span>演化底层提示词</span>
         </button>
       </div>
 
@@ -50,7 +50,7 @@
           <div v-if="activeTab === 'style'" class="tab-content style-tab">
             <div class="section-title">
               <Icon icon="material-symbols:auto-stories" class="section-icon" />
-              <span>沙盒演化文风框架 (选择小说基底气质 · 共12种)</span>
+              <span>故事基底文风 (共 12 种)</span>
             </div>
 
             <div class="style-grid">
@@ -78,7 +78,7 @@
             <!-- 写作技法补丁复选 -->
             <div class="section-title mt-4">
               <Icon icon="material-symbols:extension" class="section-icon" />
-              <span>世界演化文学技法补丁 (可自由组合叠加)</span>
+              <span>文学技法增强 (可叠加选用)</span>
             </div>
 
             <div class="patches-grid">
@@ -105,7 +105,7 @@
             <!-- 个性化文风补充指引 -->
             <div class="section-title mt-4">
               <Icon icon="material-symbols:edit-note" class="section-icon" />
-              <span>额外个性化文风与意象指引 (可选输入)</span>
+              <span>自定义风格与意象补充 (可选)</span>
             </div>
             <div class="prompt-box neu-inset-sm">
               <textarea
@@ -123,7 +123,7 @@
           <div v-if="activeTab === 'word_count'" class="tab-content word-tab">
             <div class="section-title">
               <Icon icon="material-symbols:straighten" class="section-icon" />
-              <span>正文篇幅档位 (控制 Pass 2 单轮生成字数)</span>
+              <span>单轮推演字数档位</span>
             </div>
 
             <div class="tiers-grid">
@@ -184,52 +184,52 @@
             <div class="pacing-notice neu-inset-sm mt-4">
               <Icon icon="material-symbols:info" class="notice-icon" />
               <div class="notice-body">
-                <strong>段落呼吸感铁律：</strong>
+                <strong>排版节奏提示：</strong>
                 <span>
-                  系统强制要求模型自然划分 2 至 4 个独立段落，单段约 100~200 字，段落间空行隔开，保持节奏呼吸感，严禁输出无换行的巨型文字墙。
+                  每次生成将自然划分 2 至 4 个独立段落，段落间空行隔开，保持良好阅读呼吸感，避免密集文字墙。
                 </span>
               </div>
             </div>
           </div>
 
           <!-- ======================================================== -->
-          <!-- Tab 3: 底座两步系统提示词 (融合物理时间与生活底噪) -->
+          <!-- Tab 3: 底座系统提示词 -->
           <!-- ======================================================== -->
           <div v-if="activeTab === 'raw_prompts'" class="tab-content prompt-tab">
-            <!-- Pass 1 裁决提示词 -->
+            <!-- 因果裁决提示词 -->
             <NeuCard class="prompt-card" variant="flat">
               <div class="card-header">
                 <span class="card-tag neu-flat-sm">
                   <Icon icon="material-symbols:gavel" class="tag-icon" />
-                  Pass 1: 衡律之神 (The Arbiter of Stone & Clock)
+                  因果裁决与状态演化提示词
                 </span>
-                <span class="card-sub">物理时间预算、生活底噪与因果天平</span>
+                <span class="card-sub">负责客观因果裁决、时间预算与身心状态结算</span>
               </div>
               <div class="prompt-box neu-inset-sm">
                 <textarea
                   v-model="pass1Prompt"
                   rows="7"
                   class="prompt-textarea"
-                  placeholder="Pass 1 裁决系统提示词..."
+                  placeholder="因果裁决核心提示词..."
                 />
               </div>
             </NeuCard>
 
-            <!-- Pass 2 文学正文提示词 -->
+            <!-- 文学叙事正文提示词 -->
             <NeuCard class="prompt-card mt-3" variant="flat">
               <div class="card-header">
                 <span class="card-tag neu-flat-sm">
                   <Icon icon="material-symbols:auto-stories" class="tag-icon" />
-                  Pass 2: 见证之神 (The Witness of Senses & Shade)
+                  文学叙事与感官描摹提示词
                 </span>
-                <span class="card-sub">第三人称有限视角纯净文学正文</span>
+                <span class="card-sub">负责第三人称有限视角的文学正文描写</span>
               </div>
               <div class="prompt-box neu-inset-sm">
                 <textarea
                   v-model="pass2Prompt"
                   rows="7"
                   class="prompt-textarea"
-                  placeholder="Pass 2 文学叙事系统提示词..."
+                  placeholder="文学叙事核心提示词..."
                 />
               </div>
             </NeuCard>
@@ -241,7 +241,7 @@
       <div class="modal-actions">
         <NeuButton
           icon="material-symbols:restart-alt"
-          label="恢复系统出厂预设"
+          label="恢复系统预设"
           @click="resetToDefaults"
         />
         <NeuButton
@@ -355,27 +355,27 @@ const stylePresets: Record<string, { name: string; badge: string; description: s
 // ==============================================================================
 const writingPatches: Record<string, { name: string; description: string }> = {
   plain_sketch: {
-    name: '白描特化 (去抽象心理)',
+    name: '客观动作白描',
     description: '严禁直接宣布“角色感到悲伤/害怕”，去除心理解释，转化为具体肢体动作与器物把玩。',
   },
   living_dialogue: {
-    name: '活人生态 (去播报式对白)',
+    name: '自然言谈生态',
     description: '场内角色与NPC交谈严禁直接播报世界设定；对白有吞吐、打断、言外之意与戒备试探。',
   },
   synesthesia: {
-    name: '通感特化 (跨感官联觉)',
+    name: '感官联觉特化',
     description: '跨感官联觉转换（冷光带有铁锈味、声响有粗糙材质），绕过抽象逻辑直接击穿肉体感知。',
   },
   anti_summary: {
-    name: '拒绝段尾归纳 (反总结抒情)',
+    name: '自然收束余波',
     description: '严禁在段尾以说书人姿态提炼哲理感言，文字自然收束于物理动作、余波或静默。',
   },
   living_grounding: {
-    name: '现实生活底噪 (去标签化)',
+    name: '生活琐碎底噪',
     description: '自然展现发呆、整理、疲倦等伴生动作；精神体力连续渐变，严禁职业刻板化无休止工作。',
   },
   camera_focus: {
-    name: '第三人称有限视角锚定',
+    name: '有限视角聚焦',
     description: '镜头死死钉在主角身上，主角不知道的远方秘密、未听见的密谋，全知旁白绝不泄露。',
   },
 }
@@ -385,21 +385,21 @@ const writingPatches: Record<string, { name: string; description: string }> = {
 // ==============================================================================
 const wordTiers: Record<string, { name: string; range_label: string; min: number; max: number; pacing_hint: string }> = {
   concise: {
-    name: '精炼短切片',
+    name: '精炼紧凑篇幅',
     range_label: '300 ~ 500 字',
     min: 300,
     max: 500,
     pacing_hint: '节奏紧凑凌厉，聚焦单一核心动作或关键危机对峙，适合高频快速步进推演。',
   },
   standard: {
-    name: '标准文学切片 (推荐)',
+    name: '标准文学篇幅 (推荐)',
     range_label: '500 ~ 800 字',
     min: 500,
     max: 800,
     pacing_hint: '张弛有度，场景铺陈、动作分镜与微观心绪外化均衡完整，具有极佳的长卷沉浸感。',
   },
   deep: {
-    name: '深度长卷切片',
+    name: '详实深描篇幅',
     range_label: '800 ~ 1200 字',
     min: 800,
     max: 1200,
@@ -417,7 +417,7 @@ const wordTiers: Record<string, { name: string; range_label: string; min: number
 // ==============================================================================
 // 4. 默认两步底座提示词 (神性拟人化·衡律之神与见证之神·物理时间与生活底噪特化)
 // ==============================================================================
-const defaultPass1 = `你是维系这方天地运转的【衡律之神（The Arbiter of Stone & Clock）】——你是重力、地脉、钟漏与骨骼中疲倦感本身的化身。
+const defaultPass1 = `你是维系这方天地运转的【衡律之神】——你是重力、地脉、钟漏与骨骼中疲倦感本身的化身。
 你的眼眸冰冷公正，只注视物质运行的物理法则与因果偿还。你冷酷地度量主角在这片土地上的每一步跋涉：
 步履需要时间，风霜消耗肌理，缺乏休整必将坠入迟钝与虚脱，天平两端从无虚妄奇迹。
 你的唯一职责是做【冷酷的客观因果判定与物理事实裁决】，绝不编写文学修辞，只以严密的天平，输出本次推进跨度下主角身心与环境的结构化增损 JSON。
@@ -428,15 +428,15 @@ const defaultPass1 = `你是维系这方天地运转的【衡律之神（The Arb
 4. 【推进结算与突发事件标准】：长跨度快进无突发事件时，优先结算日常琐事与作息休整，记录平淡时间自然流逝；突发事件必须源于既有物理环境与前置行为的合理衍生，拒绝机械降神。
 5. 【因果闭环与物体连续】：随身物品严格遵循物理增损，一切结果必有来处，伤害必留痕迹。`
 
-const defaultPass2 = `你是潜行于主角身侧的【见证之神（The Witness of Senses & Shade）】——你是主角眼底的微光、衣角的风尘、呼吸的白汽与指尖触感的化身。
+const defaultPass2 = `你是潜行于主角身侧的【见证之神】——你是主角眼底的微光、衣角的风尘、呼吸的白汽与指尖触感的化身。
 你不是全知的上帝，你的视角始终牢牢依附于主角的有限知情范围与肉身感知。
-你的唯一职责是接引【衡律之神】落下的冷硬客观事实骨架（Plot Beat）与感官线索，以沉浸式第三人称视角，将这段时间切片编织为富有现场感、生活重力与物理质感的小说章节。
+你的唯一职责是接引【衡律之神】落下的冷硬客观事实骨架与感官线索，以沉浸式第三人称视角，将这段时间切片编织为富有现场感、生活重力与物理质感的小说章节。
 【天地演化叙事法则】:
 1. 【物理时间与行动预算】：严格锚定在推进时间跨度内，1小时只做一件微小连续琐事，严禁短时内多幕戏剧高潮，位移必须消耗真实时间。
 2. 【现实生活底噪】：自然呈现主角在独处、等待或疲惫时的伴生动作（发呆、整理物件、洗漱、出神），这是生活的真实底色；精神体力连续渐变，去职业标签化。
 3. 【信息迷雾与社交摩擦】：主角视野严格有限，不在场人物不围绕主角转，未回的信件是常态，无需升级为情感冲突。
-4. 【客观对应物外化】：内心活动严禁抽象定性抒情，必须通过把玩随身物品、手部微操或呼吸节奏具象外化。
 5. 【篇幅与纯净正文】：正文字数服从指定区间，自然划分 2~4 个独立段落；严禁输出状态框、括号元数据或任何 Emoji 图标！`
+
 
 // ==============================================================================
 // 5. 本地状态读取与响应式绑定

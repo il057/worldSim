@@ -98,17 +98,17 @@
         <!-- 文风与提示词按钮 -->
         <button
           class="icon-action-btn neu-flat-sm"
-          title="配置文风框架、技法补丁与字数控制"
+          title="配置叙事文风、文学技法与字数篇幅"
           @click="isPromptModalOpen = true"
         >
           <Icon icon="material-symbols:style" class="nav-icon" />
-          <span class="btn-label-desktop">文风/提示词</span>
+          <span class="btn-label-desktop">文风与设定</span>
         </button>
 
         <!-- 世界书按钮 -->
         <button
           class="icon-action-btn neu-flat-sm"
-          title="查看与管理完整世界书条目"
+          title="查看与管理世界书条目"
           @click="isLoreModalOpen = true"
         >
           <Icon icon="material-symbols:menu-book" class="nav-icon" />
@@ -118,7 +118,7 @@
         <!-- API 与系统设置 -->
         <button
           class="icon-action-btn neu-flat-sm"
-          title="LLM API 与沙盒运行配置"
+          title="模型接口与运行设置"
           @click="isConfigModalOpen = true"
         >
           <Icon icon="material-symbols:settings" class="nav-icon" />

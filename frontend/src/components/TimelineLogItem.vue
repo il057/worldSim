@@ -112,12 +112,12 @@
           :icon="isExpanded ? 'material-symbols:expand-less' : 'material-symbols:expand-more'"
           class="toggle-icon"
         />
-        <span>{{ isExpanded ? '收起因果裁决详情' : '【衡律之神】因果骨架与即时状态增量检视' }}</span>
+        <span>{{ isExpanded ? '收起裁决与状态详情' : '因果裁决与即时状态变动详情' }}</span>
       </button>
 
       <div v-if="isExpanded" class="inspector-content neu-inset-sm">
         <div class="fact-beat">
-          <strong>【衡律之神】因果骨架 (Plot Beat):</strong>
+          <strong>事件事实经过:</strong>
           <p>{{ log.plot_beat }}</p>
         </div>
 
