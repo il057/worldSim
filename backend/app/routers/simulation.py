@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas import (
     SimStepRequest,
+    SimContinueRequest,
     SimFastForwardRequest,
     SimTriggerIncidentRequest,
     StepTickResponse,
@@ -57,6 +58,18 @@ async def sim_step(req: SimStepRequest, db: Session = Depends(get_db)):
         raise map_sim_exception_to_http(e)
 
 
+@router.post("/continue", response_model=StepTickResponse)
+async def sim_continue(req: SimContinueRequest, db: Session = Depends(get_db)):
+    """智能续写：由 AI 自主判断时间切速与情节推进"""
+    try:
+        res = await SimulationService.run_continue(
+            db, req.character_id, config=req.config
+        )
+        return res
+    except Exception as e:
+        raise map_sim_exception_to_http(e)
+
+
 @router.post("/fast-forward", response_model=StepTickResponse)
 async def sim_fast_forward(req: SimFastForwardRequest, db: Session = Depends(get_db)):
     """纯按钮阶段快进 (+6h 或 +24h 跨日跃迁)"""
@@ -71,10 +84,10 @@ async def sim_fast_forward(req: SimFastForwardRequest, db: Session = Depends(get
 
 @router.post("/trigger-incident", response_model=StepTickResponse)
 async def sim_trigger_incident(req: SimTriggerIncidentRequest, db: Session = Depends(get_db)):
-    """纯按钮触发突发事件：用户无需也不可输入文本，AI 自主构思危机并注入推演"""
+    """触发突发事件：支持用户指定事件或由 AI 结合题材自主衍生"""
     try:
         res = await SimulationService.trigger_inciting_incident(
-            db, req.character_id, config=req.config
+            db, req.character_id, incident_description=req.incident_description, config=req.config
         )
         return res
     except Exception as e:
@@ -88,6 +101,30 @@ async def sim_step_stream(req: SimStepRequest, db: Session = Depends(get_db)):
         try:
             async for evt in SimulationService.run_step_stream(
                 db, req.character_id, hours=req.hours, config=req.config
+            ):
+                yield f"event: {evt['event']}\ndata: {json.dumps(evt['data'], default=str, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            err_dict = {
+                "error_code": getattr(e, "error_code", "SIM_STREAM_ERROR"),
+                "message": getattr(e, "message", str(e)),
+            }
+            yield f"event: error\ndata: {json.dumps(err_dict, default=str, ensure_ascii=False)}\n\n"
+
+    sse_headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=sse_headers)
+
+
+@router.post("/continue-stream")
+async def sim_continue_stream(req: SimContinueRequest, db: Session = Depends(get_db)):
+    """智能续写实时流式输出 (SSE)"""
+    async def event_generator():
+        try:
+            async for evt in SimulationService.continue_stream(
+                db, req.character_id, config=req.config
             ):
                 yield f"event: {evt['event']}\ndata: {json.dumps(evt['data'], default=str, ensure_ascii=False)}\n\n"
         except Exception as e:
@@ -135,7 +172,7 @@ async def sim_trigger_incident_stream(req: SimTriggerIncidentRequest, db: Sessio
     async def event_generator():
         try:
             async for evt in SimulationService.trigger_incident_stream(
-                db, req.character_id, config=req.config
+                db, req.character_id, incident_description=req.incident_description, config=req.config
             ):
                 yield f"event: {evt['event']}\ndata: {json.dumps(evt['data'], default=str, ensure_ascii=False)}\n\n"
         except Exception as e:

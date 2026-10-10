@@ -16,6 +16,7 @@ from app.schemas import (
 )
 from app.services.arbitrator import ArbitratorService
 from app.services.storyteller import StorytellerService
+from app.services.memory import MemoryService
 from app.services.llm_client import llm_client, strip_emojis
 
 logger = logging.getLogger("world_sim.simulation")
@@ -115,9 +116,10 @@ class SimulationService:
         hours: int = 1,
         forced_incident_prompt: Optional[str] = None,
         config: Optional[SimulationPromptConfig] = None,
+        is_continuation: bool = False,
     ) -> StepTickResponse:
         """
-        单步微步进或突发事件驱动步进
+        单步微步进、自由续写或突发事件驱动步进
         获取互斥锁 -> Pass 1 裁决 -> 更新状态看板 -> Pass 2 撰写正文 -> 落库
         """
         lock = get_character_lock(character_id)
@@ -139,6 +141,7 @@ class SimulationService:
                     hours_passed=hours,
                     forced_incident_prompt=forced_incident_prompt,
                     config=config,
+                    is_continuation=is_continuation,
                 )
 
                 # 2. 执行 Pass 2: 纯文学场景切片撰写
@@ -149,6 +152,7 @@ class SimulationService:
                     state=state,
                     delta=delta,
                     config=config,
+                    is_continuation=is_continuation,
                 )
 
                 # 3. 两步推演均成功！统一原子更新状态看板、背包、目标与人际关系网
@@ -219,9 +223,10 @@ class SimulationService:
         hours: int = 1,
         forced_incident_prompt: Optional[str] = None,
         config: Optional[SimulationPromptConfig] = None,
+        is_continuation: bool = False,
     ):
         """
-        单步微步进或突发事件驱动的实时流式生成管线：
+        单步微步进、自由续写或突发事件驱动的实时流式生成管线：
         1. Pass 1 理性世界物理与心理裁决；
         2. Pass 2 实时流式输出纯文学小说切片（通过异步队列分块吐出）；
         3. 事务性原子提交并落库；
@@ -240,7 +245,7 @@ class SimulationService:
             try:
                 yield {
                     "event": "status",
-                    "data": {"stage": "pass1", "message": "Pass 1 正在进行理性世界物理与心理裁决..."}
+                    "data": {"stage": "pass1", "message": "【衡律之神】正在权衡因果法则与身心节律..."}
                 }
 
                 # 1. 执行 Pass 1: 理性裁决
@@ -251,6 +256,7 @@ class SimulationService:
                     hours_passed=hours,
                     forced_incident_prompt=forced_incident_prompt,
                     config=config,
+                    is_continuation=is_continuation,
                 )
 
                 yield {
@@ -266,7 +272,7 @@ class SimulationService:
 
                 yield {
                     "event": "status",
-                    "data": {"stage": "pass2", "message": "Pass 2 正在进行纯文学有限视角小说正文撰写..."}
+                    "data": {"stage": "pass2", "message": "【见证之神】正在以有限视角编织时空切片..."}
                 }
 
                 # 2. 执行 Pass 2: 纯文学场景切片撰写（带流式队列回调）
@@ -284,6 +290,7 @@ class SimulationService:
                             delta=delta,
                             config=config,
                             on_chunk=chunk_listener,
+                            is_continuation=is_continuation,
                         )
                     except Exception as err:
                         await queue.put(err)
@@ -384,50 +391,80 @@ class SimulationService:
             yield evt
 
     @classmethod
-    async def trigger_incident_stream(
+    async def continue_stream(
         cls,
         db: Session,
         character_id: str,
         config: Optional[SimulationPromptConfig] = None,
     ):
-        """突发事件实时流式输出"""
+        """智能续写实时流式输出 (AI 自主决定时间尺度)"""
+        async for evt in cls.run_step_stream(db, character_id, hours=1, config=config, is_continuation=True):
+            yield evt
+
+    @classmethod
+    async def trigger_incident_stream(
+        cls,
+        db: Session,
+        character_id: str,
+        incident_description: Optional[str] = None,
+        config: Optional[SimulationPromptConfig] = None,
+    ):
+        """突发事件实时流式输出 (支持用户指定事件或 AI 结合世界观自主衍生)"""
         character = db.query(Character).filter(Character.id == character_id).first()
         state = db.query(CharacterState).filter(CharacterState.character_id == character_id).first()
         if not character or not state:
             raise ValueError("角色或状态不存在")
 
-        yield {
-            "event": "status",
-            "data": {"stage": "incident_conceive", "message": "AI 正在构思因果突发事件..."}
-        }
+        if incident_description and incident_description.strip():
+            incident_beat = incident_description.strip()
+            yield {
+                "event": "status",
+                "data": {"stage": "incident_conceive", "message": f"【变数之引】正在将突发变故注入因果: {incident_beat[:20]}..."}
+            }
+            logger.info(f"使用用户指定突发事件: {incident_beat}")
+        else:
+            yield {
+                "event": "status",
+                "data": {"stage": "incident_conceive", "message": "【变数之引】正在结合世界题材构思突发变故..."}
+            }
 
-        system_prompt = (
-            "你是一个虚拟世界突发事件（Inciting Incident）构思引擎。\n"
-            "用户按下了【触发突发事件】按钮。请结合角色的身份、核心执念、当前所处物理地点与心理状态，"
-            "自主构思一场突如其来的危机、奇遇或变故（如：仇家尾随堵门、异响预警、机关突发故障、带有密信的飞鸟、"
-            "突降天灾或巡逻队突击搜查）。\n"
-            "用 100~150 字扼要描述此突发变故的客观事实，具有强烈的因果张力。\n"
-            "严禁包含任何 Emoji 图标。"
-        )
-        user_prompt = (
-            f"主角姓名: {character.name} ({character.title})\n"
-            f"核心执念: {character.inner_drive}\n"
-            f"当前时空地点: {state.virtual_time} | {state.location}\n"
-            f"当前状态: {'休眠中' if state.is_sleeping else '清醒活动'} | 心理: {state.psychological_state}\n"
-            f"请构思这场突发变故："
-        )
+            lore_context = MemoryService.get_tier3_lorebook_and_ledger(
+                db, character.id, state.location, state.psychological_state
+            )
 
-        incident_beat = await llm_client.chat_completion(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            json_mode=False,
-            temperature=0.85,
-        )
+            system_prompt = (
+                "你是一个虚拟世界突发事件（Inciting Incident）构思引擎。\n"
+                "你的任务是为当前虚拟世界构思一场契合题材背景与即时情境的意外变故、外部变数或情势转折。\n"
+                "【题材自适应与合理性铁律（极重要）】:\n"
+                "- 坚决杜绝脱离背景、千篇一律地编造激进的暗杀、杀手堵门、血腥复仇或致命阴谋！\n"
+                "- 突发事件必须严密契合当前世界观题材（校园青春、都市日常、职场商战、古风修仙、科幻调查、公路旅行等）与微观现实情境：\n"
+                "  * 校园日常/青春背景：突击检查、失物招领、突发雷阵雨导致滞留、黑板上的神秘留字、社团预算危机、同伴带来的意外传闻、尴尬撞破的小秘密等；\n"
+                "  * 都市职场/现代背景：突发紧急工作传达、失联朋友发来离奇短讯、突发断电、错收的快递包裹、偶遇多年未见的故人、临时调派；\n"
+                "  * 奇幻/修仙/悬疑/冒险背景：合理范围内的机关异响、突如其来的传讯符飞鸟、恶劣天气异变、意外闯入的求助者、遗迹禁制松动等；\n"
+                "- 突发事件旨在打破当前稳态，为推演注入戏剧动力与真实波澜，而非为了制造冲突强行毁灭日常。\n"
+                "- 用 80~140 字扼要描述此突发变故的客观事实，具备自然强烈的戏剧张力与因果潜能。\n"
+                "- 严禁包含任何 Emoji 图标。"
+            )
+            user_prompt = (
+                f"主角姓名: {character.name} ({character.title or '活动中'})\n"
+                f"人设背景与性格底色: {character.persona_summary}\n"
+                f"核心执念 (Inner Drive): {character.inner_drive}\n"
+                f"当前时空地点: {state.virtual_time} | {state.location}\n"
+                f"当前状态: {'休眠中' if state.is_sleeping else '清醒活动'} | 心理: {state.psychological_state}\n"
+                f"{lore_context}\n"
+                f"请结合以上题材世界观与即时情境，构思一场契合题材的突发变故："
+            )
 
-        incident_beat = strip_emojis(incident_beat.strip())
-        logger.info(f"AI 自主构思突发事件: {incident_beat}")
+            incident_beat = await llm_client.chat_completion(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                json_mode=False,
+                temperature=0.85,
+            )
+            incident_beat = strip_emojis(incident_beat.strip())
+            logger.info(f"AI 自主构思突发事件: {incident_beat}")
 
         async for evt in cls.run_step_stream(
             db, character_id, hours=1, forced_incident_prompt=incident_beat, config=config
@@ -535,48 +572,79 @@ class SimulationService:
                 raise
 
     @classmethod
-    async def trigger_inciting_incident(
+    async def run_continue(
         cls,
         db: Session,
         character_id: str,
         config: Optional[SimulationPromptConfig] = None,
     ) -> StepTickResponse:
+        """智能续写（由 AI 自主判断合理时间切速与情节推进）"""
+        return await cls.run_step(
+            db,
+            character_id,
+            hours=1,
+            config=config,
+            is_continuation=True,
+        )
+
+    @classmethod
+    async def trigger_inciting_incident(
+        cls,
+        db: Session,
+        character_id: str,
+        incident_description: Optional[str] = None,
+        config: Optional[SimulationPromptConfig] = None,
+    ) -> StepTickResponse:
         """
         突发事件引擎：
-        绝无用户输入，AI 结合当前时空、未解执念、世界书自主构思危机事件，送入 Pass 1
+        支持用户指定事件或 AI 结合世界观题材自主衍生突发变故，送入 Pass 1
         """
         character = db.query(Character).filter(Character.id == character_id).first()
         state = db.query(CharacterState).filter(CharacterState.character_id == character_id).first()
         if not character or not state:
             raise ValueError("角色或状态不存在")
 
-        system_prompt = (
-            "你是一个虚拟世界突发事件（Inciting Incident）构思引擎。\n"
-            "用户按下了【触发突发事件】按钮。请结合角色的身份、核心执念、当前所处物理地点与心理状态，"
-            "自主构思一场突如其来的危机、奇遇或变故（如：仇家尾随堵门、异响预警、机关突发故障、带有密信的飞鸟、"
-            "突降天灾或巡逻队突击搜查）。\n"
-            "用 100~150 字扼要描述此突发变故的客观事实，具有强烈的因果张力。\n"
-            "严禁包含任何 Emoji 图标。"
-        )
-        user_prompt = (
-            f"主角姓名: {character.name} ({character.title})\n"
-            f"核心执念: {character.inner_drive}\n"
-            f"当前时空地点: {state.virtual_time} | {state.location}\n"
-            f"当前状态: {'休眠中' if state.is_sleeping else '清醒活动'} | 心理: {state.psychological_state}\n"
-            f"请构思这场突发变故："
-        )
+        if incident_description and incident_description.strip():
+            incident_beat = incident_description.strip()
+            logger.info(f"使用用户指定突发事件: {incident_beat}")
+        else:
+            lore_context = MemoryService.get_tier3_lorebook_and_ledger(
+                db, character.id, state.location, state.psychological_state
+            )
 
-        incident_beat = await llm_client.chat_completion(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            json_mode=False,
-            temperature=0.85,
-        )
+            system_prompt = (
+                "你是一个虚拟世界突发事件（Inciting Incident）构思引擎。\n"
+                "你的任务是为当前虚拟世界构思一场契合题材背景与即时情境的意外变故、外部变数或情势转折。\n"
+                "【题材自适应与合理性铁律（极重要）】:\n"
+                "- 坚决杜绝脱离背景、千篇一律地编造激进的暗杀、杀手堵门、血腥复仇或致命阴谋！\n"
+                "- 突发事件必须严密契合当前世界观题材（校园青春、都市日常、职场商战、古风修仙、科幻调查、公路旅行等）与微观现实情境：\n"
+                "  * 校园日常/青春背景：突击检查、失物招领、突发雷阵雨导致滞留、黑板上的神秘留字、社团预算危机、同伴带来的意外传闻、尴尬撞破的小秘密等；\n"
+                "  * 都市职场/现代背景：突发紧急工作传达、失联朋友发来离奇短讯、突发断电、错收的快递包裹、偶遇多年未见的故人、临时调派；\n"
+                "  * 奇幻/修仙/悬疑/冒险背景：合理范围内的机关异响、突如其来的传讯符飞鸟、恶劣天气异变、意外闯入的求助者、遗迹禁制松动等；\n"
+                "- 突发事件旨在打破当前稳态，为推演注入戏剧动力与真实波澜，而非为了制造冲突强行毁灭日常。\n"
+                "- 用 80~140 字扼要描述此突发变故的客观事实，具备自然强烈的戏剧张力与因果潜能。\n"
+                "- 严禁包含任何 Emoji 图标。"
+            )
+            user_prompt = (
+                f"主角姓名: {character.name} ({character.title or '活动中'})\n"
+                f"人设背景与性格底色: {character.persona_summary}\n"
+                f"核心执念 (Inner Drive): {character.inner_drive}\n"
+                f"当前时空地点: {state.virtual_time} | {state.location}\n"
+                f"当前状态: {'休眠中' if state.is_sleeping else '清醒活动'} | 心理: {state.psychological_state}\n"
+                f"{lore_context}\n"
+                f"请结合以上题材世界观与即时情境，构思一场契合题材的突发变故："
+            )
 
-        incident_beat = strip_emojis(incident_beat.strip())
-        logger.info(f"AI 自主构思突发事件: {incident_beat}")
+            incident_beat = await llm_client.chat_completion(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                json_mode=False,
+                temperature=0.85,
+            )
+            incident_beat = strip_emojis(incident_beat.strip())
+            logger.info(f"AI 自主构思突发事件: {incident_beat}")
 
         # 注入单步推演
         return await cls.run_step(db, character_id, hours=1, forced_incident_prompt=incident_beat, config=config)

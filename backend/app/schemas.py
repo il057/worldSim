@@ -117,7 +117,7 @@ class RelationshipDelta(BaseModel):
 
 
 class ArbitratorDelta(BaseModel):
-    simulated_hours_passed: int = 1
+    simulated_hours_passed: float = 1.0
     new_virtual_time: str
     new_location: str
     rest_decision: RestDecision
@@ -208,6 +208,11 @@ class SimStepRequest(BaseModel):
     config: Optional[SimulationPromptConfig] = None
 
 
+class SimContinueRequest(BaseModel):
+    character_id: str
+    config: Optional[SimulationPromptConfig] = None
+
+
 class SimFastForwardRequest(BaseModel):
     character_id: str
     step_type: str  # hour_6 | day_1
@@ -216,6 +221,7 @@ class SimFastForwardRequest(BaseModel):
 
 class SimTriggerIncidentRequest(BaseModel):
     character_id: str
+    incident_description: Optional[str] = None
     config: Optional[SimulationPromptConfig] = None
 
 

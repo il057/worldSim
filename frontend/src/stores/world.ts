@@ -41,7 +41,7 @@ export const useWorldStore = defineStore('world', {
       return stored !== null ? stored === 'true' : true
     })() as boolean,
     isStreaming: false,
-    streamingStage: '' as 'pass1' | 'pass2' | '',
+    streamingStage: '' as 'pass1' | 'pass2' | 'incident_conceive' | string,
     streamingLog: null as StoryLogView | null,
   }),
 
@@ -149,22 +149,39 @@ export const useWorldStore = defineStore('world', {
     },
 
     async executeSimTick(
-      actionType: 'step' | 'fastForward' | 'triggerIncident',
-      params: { hours?: number; stepType?: 'hour_6' | 'day_1' } = {}
+      actionType: 'step' | 'fastForward' | 'triggerIncident' | 'continue',
+      params: { hours?: number; stepType?: 'hour_6' | 'day_1'; incidentDescription?: string } = {}
     ) {
       if (!this.currentCharacterId || this.isTicking) return
       this.isTicking = true
       this.error = null
-      this.streamingLog = null
+
+      const nextIndex =
+        this.timeline.length > 0 ? this.timeline[this.timeline.length - 1].tick_index + 1 : 1
+
+      // 无论流式或非流式，推演启动时立即在最新楼层挂载占位卡片
+      this.streamingLog = {
+        id: -999,
+        character_id: this.currentCharacterId,
+        tick_index: nextIndex,
+        virtual_time: this.currentState?.virtual_time || '推演中',
+        location: this.currentState?.location || '推演中',
+        plot_beat: '',
+        narrative_prose: '',
+      }
 
       let defaultStatus = '推演进行中...'
       if (actionType === 'step') {
         defaultStatus = `正在推演演化 (${params.hours || 1}h)...`
+      } else if (actionType === 'continue') {
+        defaultStatus = 'AI 正在自主研判时间切速并续写前文...'
       } else if (actionType === 'fastForward') {
         const span = params.stepType === 'hour_6' ? '+6h 阶段快进' : '+24h 跨日跃迁'
         defaultStatus = `正在执行 ${span}...`
       } else if (actionType === 'triggerIncident') {
-        defaultStatus = 'AI 正在构思因果突发事件并注入裁决...'
+        defaultStatus = params.incidentDescription
+          ? '正在将自定义突发事件注入裁决...'
+          : 'AI 正在结合世界观构思突发事件并注入裁决...'
       }
       this.tickStatusText = defaultStatus
 
@@ -175,44 +192,30 @@ export const useWorldStore = defineStore('world', {
         if (this.enableStreamDisplay) {
           this.isStreaming = true
           this.streamingStage = 'pass1'
+          this.tickStatusText = '【衡律之神】正在权衡因果法则与身心节律...'
 
           const callbacks = {
-            onStatus: (data: { stage: 'pass1' | 'pass2'; message: string }) => {
+            onStatus: (data: { stage: string; message: string }) => {
               this.streamingStage = data.stage
-              if (data.stage === 'pass1') {
-                this.tickStatusText = data.message || 'Pass 1 正在进行理性因果裁决...'
+              if (data.message) {
+                this.tickStatusText = data.message
+              } else if (data.stage === 'pass1') {
+                this.tickStatusText = '【衡律之神】正在权衡因果法则与身心节律...'
               } else if (data.stage === 'pass2') {
-                this.tickStatusText = data.message || 'Pass 2 正在以有限视角实时书写正文...'
+                this.tickStatusText = '【见证之神】正在以有限视角编织时空切片...'
               }
             },
             onPass1Done: (data: { virtual_time: string; location: string; plot_beat: string }) => {
-              const nextIndex =
-                this.timeline.length > 0 ? this.timeline[this.timeline.length - 1].tick_index + 1 : 1
-              this.streamingLog = {
-                id: -999,
-                character_id: this.currentCharacterId,
-                tick_index: nextIndex,
-                virtual_time: data.virtual_time,
-                location: data.location,
-                plot_beat: data.plot_beat,
-                narrative_prose: '',
+              if (this.streamingLog) {
+                this.streamingLog.virtual_time = data.virtual_time
+                this.streamingLog.location = data.location
+                this.streamingLog.plot_beat = data.plot_beat
               }
             },
             onChunk: (chunk: string) => {
-              if (!this.streamingLog) {
-                const nextIndex =
-                  this.timeline.length > 0 ? this.timeline[this.timeline.length - 1].tick_index + 1 : 1
-                this.streamingLog = {
-                  id: -999,
-                  character_id: this.currentCharacterId,
-                  tick_index: nextIndex,
-                  virtual_time: this.currentState?.virtual_time || '',
-                  location: this.currentState?.location || '',
-                  plot_beat: '',
-                  narrative_prose: '',
-                }
+              if (this.streamingLog) {
+                this.streamingLog.narrative_prose += chunk
               }
-              this.streamingLog.narrative_prose += chunk
             },
           }
 
@@ -220,6 +223,12 @@ export const useWorldStore = defineStore('world', {
             resData = await apiClient.stepStream(
               this.currentCharacterId,
               params.hours || 1,
+              config,
+              callbacks
+            )
+          } else if (actionType === 'continue') {
+            resData = await apiClient.continueStream(
+              this.currentCharacterId,
               config,
               callbacks
             )
@@ -233,15 +242,22 @@ export const useWorldStore = defineStore('world', {
           } else {
             resData = await apiClient.triggerIncidentStream(
               this.currentCharacterId,
+              params.incidentDescription,
               config,
               callbacks
             )
           }
         } else {
           // 普通非流式单次请求
+          this.isStreaming = false
+          this.streamingStage = ''
+          this.tickStatusText = '生成中'
+
           let res: any
           if (actionType === 'step') {
             res = await apiClient.step(this.currentCharacterId, params.hours || 1, config)
+          } else if (actionType === 'continue') {
+            res = await apiClient.continue(this.currentCharacterId, config)
           } else if (actionType === 'fastForward') {
             res = await apiClient.fastForward(
               this.currentCharacterId,
@@ -249,12 +265,13 @@ export const useWorldStore = defineStore('world', {
               config
             )
           } else {
-            res = await apiClient.triggerIncident(this.currentCharacterId, config)
+            res = await apiClient.triggerIncident(this.currentCharacterId, params.incidentDescription, config)
           }
           resData = res.data
         }
 
         // 统一提交推演结果
+        this.streamingLog = null
         this.currentState = resData.current_state
         if (this.currentDetail) {
           this.currentDetail.state = resData.current_state
@@ -284,12 +301,16 @@ export const useWorldStore = defineStore('world', {
       return this.executeSimTick('step', { hours })
     },
 
+    async runContinue() {
+      return this.executeSimTick('continue')
+    },
+
     async runFastForward(stepType: 'hour_6' | 'day_1') {
       return this.executeSimTick('fastForward', { stepType })
     },
 
-    async triggerIncident() {
-      return this.executeSimTick('triggerIncident')
+    async triggerIncident(incidentDescription?: string) {
+      return this.executeSimTick('triggerIncident', { incidentDescription })
     },
 
     async resetWorld() {

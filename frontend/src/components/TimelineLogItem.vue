@@ -1,5 +1,5 @@
 <template>
-  <NeuCard class="timeline-log-card" variant="flat">
+  <NeuCard class="timeline-log-card" :class="{ 'is-streaming': isStreaming }" variant="flat">
     <!-- 切片头部元信息 -->
     <div class="log-header">
       <div class="header-left">
@@ -13,9 +13,15 @@
         </span>
       </div>
       <div class="header-right">
-        <span v-if="isStreaming" class="streaming-pill neu-flat-xs">
-          <Icon icon="material-symbols:edit-note" class="streaming-icon pulse-anim" />
-          <span>实时流式生成中</span>
+        <!-- 非流式推演生成中指示 -->
+        <span v-if="isPendingNonStreaming" class="generating-pill neu-flat-xs">
+          <Icon icon="material-symbols:progress-activity" class="spin-icon-generating" />
+          <span>生成中</span>
+        </span>
+        <!-- 流式推演神性阶段指示 -->
+        <span v-else-if="isStreaming" class="streaming-pill neu-flat-xs">
+          <Icon :icon="stageIcon" class="streaming-icon pulse-anim" />
+          <span>{{ stageBadgeText }}</span>
         </span>
         <span class="location-text">
           <Icon icon="material-symbols:location-on" class="meta-icon" />
@@ -24,55 +30,94 @@
       </div>
     </div>
 
-    <!-- 纯文学正文流 (Pass 2) 自然段落与拟真手机组件混排 -->
+    <!-- 纯文学正文流 自然段落与拟真手机组件混排 -->
     <div class="log-prose prose-literary" :class="{ 'is-streaming-text': isStreaming }">
-      <template v-for="(block, bIdx) in contentBlocks" :key="bIdx">
-        <!-- 1. 普通纯文学段落 (支持双引号“”与角标引「」等多重对白色彩高亮) -->
-        <p v-if="block.type === 'text'" class="prose-paragraph">
-          <span v-html="formatProseText(block.content)"></span><span v-if="isStreaming && bIdx === contentBlocks.length - 1" class="typing-cursor"></span>
-        </p>
+      <!-- 1. 非流式状态下的纯净等待指示 -->
+      <div v-if="isPendingNonStreaming" class="generating-placeholder neu-inset-sm">
+        <Icon icon="material-symbols:progress-activity" class="spin-icon-generating" />
+        <span class="generating-text">生成中...</span>
+      </div>
 
-        <!-- 2. 朋友圈动态 -->
-        <PhoneMomentsCard
-          v-else-if="block.type === 'moments'"
-          :posts="block.posts"
-        />
+      <!-- 2. 流式传输状态下的推进与多阶段呈现 (Pass 1 -> Pass 2) -->
+      <template v-else-if="isStreaming">
+        <!-- 阶段 A: 尚未拿到衡律之神裁决结果时，显示衡律之神/变数之引推演中 -->
+        <div v-if="!log.plot_beat && contentBlocks.length === 0" class="divine-calling-card neu-inset-sm">
+          <div class="divine-header">
+            <Icon
+              :icon="worldStore.streamingStage === 'incident_conceive' ? 'material-symbols:bolt' : 'material-symbols:balance'"
+              class="divine-icon pulse-anim"
+            />
+            <span class="divine-name">
+              {{ worldStore.streamingStage === 'incident_conceive' ? '【变数之引】' : '【衡律之神】' }}
+            </span>
+          </div>
+          <div class="divine-msg">
+            {{ worldStore.tickStatusText || '正在权衡因果法则与身心节律...' }}
+            <span class="typing-cursor"></span>
+          </div>
+        </div>
 
-        <!-- 3. 网络论坛 / 社区热帖 (BBS) -->
-        <PhoneForumCard
-          v-else-if="block.type === 'forum'"
-          :data="block.data"
-        />
+        <!-- 阶段 B: 衡律之神裁决完毕，先在楼层展现 Pass 1 衡律之神的裁决事实回复 -->
+        <div v-if="log.plot_beat" class="divine-result-card neu-flat-sm">
+          <div class="divine-result-header">
+            <Icon icon="material-symbols:balance" class="divine-result-icon" />
+            <span class="divine-result-tag">【衡律之神·因果裁决】</span>
+          </div>
+          <div class="divine-result-prose">
+            {{ log.plot_beat }}
+          </div>
+        </div>
 
-        <!-- 4. 手机即时通讯消息组 (私信/语音/定位/转账) -->
-        <PhoneChatGroup
-          v-else-if="block.type === 'chat'"
-          :items="block.items"
-          :protagonist-name="characterName"
-        />
+        <!-- 阶段 C: 紧接着展现 Pass 2 见证之神的回复 -->
+        <!-- 若正文尚未吐出 chunk 时的准备中提示 -->
+        <div v-if="log.plot_beat && contentBlocks.length === 0" class="divine-calling-card neu-inset-sm divine-witness-card">
+          <div class="divine-header">
+            <Icon icon="material-symbols:ink-pen" class="divine-icon pulse-anim" />
+            <span class="divine-name">【见证之神】</span>
+          </div>
+          <div class="divine-msg">
+            {{ worldStore.tickStatusText || '正在以有限视角编织时空切片...' }}
+            <span class="typing-cursor"></span>
+          </div>
+        </div>
+
+        <!-- 正文 chunk 吐出时：渲染纯文学段落与手机组件，最后一个段落带光标 -->
+        <template v-for="(block, bIdx) in contentBlocks" :key="bIdx">
+          <p v-if="block.type === 'text'" class="prose-paragraph">
+            <span v-html="formatProseText(block.content)"></span><span v-if="bIdx === contentBlocks.length - 1" class="typing-cursor"></span>
+          </p>
+          <PhoneMomentsCard v-else-if="block.type === 'moments'" :posts="block.posts" />
+          <PhoneForumCard v-else-if="block.type === 'forum'" :data="block.data" />
+          <PhoneChatGroup v-else-if="block.type === 'chat'" :items="block.items" :protagonist-name="characterName" />
+        </template>
       </template>
 
-      <!-- 流式等待起步时的占位打字机指示 -->
-      <div v-if="isStreaming && contentBlocks.length === 0" class="streaming-placeholder">
-        <Icon icon="material-symbols:ink-pen" class="streaming-pen-icon" />
-        <span>Pass 2 正在以有限视角构思文学笔触...</span>
-        <span class="typing-cursor"></span>
-      </div>
+      <!-- 3. 常规已落库历史楼层渲染 -->
+      <template v-else>
+        <template v-for="(block, bIdx) in contentBlocks" :key="bIdx">
+          <p v-if="block.type === 'text'" class="prose-paragraph">
+            <span v-html="formatProseText(block.content)"></span>
+          </p>
+          <PhoneMomentsCard v-else-if="block.type === 'moments'" :posts="block.posts" />
+          <PhoneForumCard v-else-if="block.type === 'forum'" :data="block.data" />
+          <PhoneChatGroup v-else-if="block.type === 'chat'" :items="block.items" :protagonist-name="characterName" />
+        </template>
+      </template>
     </div>
 
-    <!-- Pass 1 客观事实骨架与增量检视器折叠面板 -->
-    <div v-if="log.delta_snapshot || log.plot_beat" class="delta-inspector">
+    <!-- 【衡律之神】客观事实骨架与增量检视器折叠面板 (已定稿楼层随时供查看) -->
+    <div v-if="!isStreaming && (log.delta_snapshot || log.plot_beat)" class="delta-inspector">
       <button class="toggle-btn" @click="isExpanded = !isExpanded">
         <Icon
           :icon="isExpanded ? 'material-symbols:expand-less' : 'material-symbols:expand-more'"
           class="toggle-icon"
         />
-        <span>{{ isExpanded ? '收起裁决详情' : '查看本轮客观事实骨架与状态增量' }}</span>
+        <span>{{ isExpanded ? '收起因果裁决详情' : '【衡律之神】因果骨架与即时状态增量检视' }}</span>
       </button>
 
       <div v-if="isExpanded" class="inspector-content neu-inset-sm">
         <div class="fact-beat">
-          <strong>事实骨架 (Plot Beat):</strong>
+          <strong>【衡律之神】因果骨架 (Plot Beat):</strong>
           <p>{{ log.plot_beat }}</p>
         </div>
 
@@ -156,6 +201,26 @@ const characterName = computed(() => worldStore.currentDetail?.name || '')
 
 const isExpanded = ref(false)
 
+const isPendingNonStreaming = computed(() => {
+  return props.log.id === -999 && !props.isStreaming
+})
+
+const stageBadgeText = computed(() => {
+  const stage = worldStore.streamingStage
+  if (stage === 'incident_conceive') return '【变数之引】构思变故中'
+  if (stage === 'pass1') return '【衡律之神】权衡因果中'
+  if (stage === 'pass2') return '【见证之神】编织正文中'
+  return '实时流式生成中'
+})
+
+const stageIcon = computed(() => {
+  const stage = worldStore.streamingStage
+  if (stage === 'incident_conceive') return 'material-symbols:bolt'
+  if (stage === 'pass1') return 'material-symbols:balance'
+  if (stage === 'pass2') return 'material-symbols:ink-pen'
+  return 'material-symbols:edit-note'
+})
+
 const formatDelta = (val: number) => {
   if (val > 0) return `+${val}`
   return `${val}`
@@ -214,6 +279,19 @@ const hasInventoryDelta = computed(() => {
   box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
 }
 
+.generating-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.725rem;
+  color: var(--neu-text-secondary);
+  font-weight: 600;
+  background: var(--neu-base);
+  box-shadow: 1px 1px 3px var(--neu-shadow-dark), -1px -1px 3px var(--neu-shadow-light);
+}
+
 .streaming-pill {
   display: inline-flex;
   align-items: center;
@@ -256,20 +334,101 @@ const hasInventoryDelta = computed(() => {
   50% { opacity: 0; }
 }
 
-.streaming-placeholder {
+/* 非流式生成中占位 */
+.generating-placeholder {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1.25rem 1rem;
+  border-radius: 10px;
   color: var(--neu-text-secondary);
-  font-style: italic;
-  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
-.streaming-pen-icon {
-  font-size: 1.05rem;
+.spin-icon-generating {
+  font-size: 1.2rem;
+  animation: spin-generating 1s linear infinite;
   color: var(--neu-accent);
-  animation: pulse-ring 1.2s infinite ease-in-out;
+}
+
+@keyframes spin-generating {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 神性呼唤中卡片 */
+.divine-calling-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  margin-bottom: 0.85rem;
+  font-size: 0.85rem;
+  color: var(--neu-text-secondary);
+}
+
+.divine-calling-card.divine-witness-card {
+  border-left: 3px solid #6366f1;
+}
+
+.divine-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.divine-icon {
+  font-size: 1.1rem;
+  color: var(--neu-accent);
+}
+
+.divine-name {
+  font-weight: 600;
+  color: var(--neu-accent);
+}
+
+.divine-msg {
+  display: inline-flex;
+  align-items: center;
+  font-style: italic;
+}
+
+/* 衡律之神裁决结果展示横幅 */
+.divine-result-card {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border-left: 3px solid var(--neu-accent);
+  background: rgba(240, 243, 248, 0.75);
+}
+
+.divine-result-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.divine-result-icon {
+  font-size: 0.95rem;
+  color: var(--neu-accent);
+}
+
+.divine-result-tag {
+  font-size: 0.775rem;
+  font-weight: 600;
+  color: var(--neu-accent);
+  letter-spacing: 0.02em;
+}
+
+.divine-result-prose {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: #374151;
 }
 
 .log-header {

@@ -161,6 +161,17 @@ CREATE TABLE IF NOT EXISTS system_configs (
 - **内部流转**：获取异步并发锁 -> 检查当前精力值与作息画像 -> Pass 1 裁决 -> 更新状态看板 -> Pass 2 撰写正文 -> 写入 `story_logs` -> 释放锁。
 - **响应体（Response 200）**：返回新增的故事切片与最新的看板数值。
 
+#### POST `/api/v1/sim/continue` 与 `/api/v1/sim/continue-stream`
+- **功能**：智能自由续写（单次请求或 SSE 流式）。用户点击界面 `[续写]` 按钮时触发。
+- **请求体（Request Body）**：
+```json
+{
+  "character_id": "c-9a4f-4b10",
+  "config": { ... }
+}
+```
+- **核心契约**：不限定死板推进小时数，由 AI 裁决机结合当前场景目标、未完成互动与戏剧压力，自主研判本次演化跨越的合理时间尺度（输出至 `ArbitratorDelta.simulated_hours_passed: float`），维持“起—扬—收”呼吸感并产出无缝接力的小说正文。
+
 #### POST `/api/v1/sim/fast-forward`
 - **功能**：阶段快进或跨日跃迁。用户点击界面 `[+6h]` 或 `[+24h]` 按钮时触发。
 - **请求体（Request Body）**：
@@ -172,17 +183,18 @@ CREATE TABLE IF NOT EXISTS system_configs (
 ```
 - **内部流转**：执行大颗粒度作息折叠推进，最后 1 小时产出代表性切片正文。
 
-#### POST `/api/v1/sim/trigger-incident`
-- **功能**：触发突发事件。用户点击界面 `[触发突发事件]` 按钮时触发。
-- **核心契约约束**：
-  - **用户不传递任何文本事件描述**（Request 仅包含 `character_id`）。
-  - 后端启动突发事件引擎：结合角色当前所处环境、世界书法则与未解执念，由 AI 自主构思一场符合因果逻辑的危机或奇遇，强制注入 Pass 1 作为本轮的核心驱动力。
+#### POST `/api/v1/sim/trigger-incident` 与 `/api/v1/sim/trigger-incident-stream`
+- **功能**：触发突发事件。用户在弹窗中选择“由 AI 决定”或输入“自定义事件”时触发。
 - **请求体（Request Body）**：
 ```json
 {
-  "character_id": "c-9a4f-4b10"
+  "character_id": "c-9a4f-4b10",
+  "incident_description": "走廊广播突然播放紧急集合通知" // 可选，留空则由 AI 结合世界观自主衍生
 }
 ```
+- **核心契约约束**：
+  - 若 `incident_description` 留空/未传：启动题材自适应构思引擎，结合当前题材画风（校园、都市、奇幻等）构思自然变故，坚决杜绝生搬硬套脱节的激进仇杀；
+  - 若 `incident_description` 有值：直接将用户指定的事件作为最高主导因注入 Pass 1 裁决。
 
 ---
 

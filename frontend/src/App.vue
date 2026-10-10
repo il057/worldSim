@@ -32,6 +32,16 @@
       <div class="nav-section-center">
         <div class="stepper-controls neu-inset-sm">
           <button
+            class="step-btn continue-btn"
+            title="智能续写：由 AI 自主判断合理时间切速与情节推进"
+            :disabled="worldStore.isTicking"
+            @click="worldStore.runContinue()"
+          >
+            <Icon icon="material-symbols:auto-stories" class="btn-symbol continue-icon" />
+            <span class="btn-text continue-text">续写</span>
+          </button>
+
+          <button
             class="step-btn"
             title="推进 1 虚拟小时 (+1h)"
             :disabled="worldStore.isTicking"
@@ -63,9 +73,9 @@
 
           <button
             class="step-btn incident-btn"
-            title="触发突发事件 (AI 自主构思危机注入裁决)"
+            title="触发突发事件 (自主构思或自定义输入)"
             :disabled="worldStore.isTicking"
-            @click="worldStore.triggerIncident()"
+            @click="isIncidentModalOpen = true"
           >
             <Icon icon="material-symbols:crisis-alert" class="btn-symbol incident-icon" />
             <span class="btn-text incident-text">突发事件</span>
@@ -126,12 +136,6 @@
         </button>
       </div>
     </header>
-
-    <!-- 推演状态横幅 -->
-    <div v-if="worldStore.isTicking" class="ticking-indicator-banner neu-flat-sm">
-      <Icon icon="material-symbols:progress-activity" class="spin-icon" />
-      <span>{{ worldStore.tickStatusText }}</span>
-    </div>
 
     <!-- 异常警告横幅 -->
     <div v-if="worldStore.error" class="error-indicator-banner neu-flat-sm">
@@ -273,6 +277,15 @@
     <!-- ======================================================== -->
     <div class="mobile-bottom-bar neu-flat show-mobile-only">
       <button
+        class="mobile-bottom-btn continue-accent"
+        :disabled="worldStore.isTicking"
+        @click="worldStore.runContinue()"
+      >
+        <Icon icon="material-symbols:auto-stories" />
+        <span>续写</span>
+      </button>
+
+      <button
         class="mobile-bottom-btn"
         :disabled="worldStore.isTicking"
         @click="worldStore.runStep(1)"
@@ -302,10 +315,10 @@
       <button
         class="mobile-bottom-btn incident-accent"
         :disabled="worldStore.isTicking"
-        @click="worldStore.triggerIncident()"
+        @click="isIncidentModalOpen = true"
       >
         <Icon icon="material-symbols:crisis-alert" />
-        <span>突发事件</span>
+        <span>突发</span>
       </button>
 
       <button
@@ -320,6 +333,13 @@
     <!-- ======================================================== -->
     <!-- 4. 全局模态控制弹窗系统 (Modals)                          -->
     <!-- ======================================================== -->
+    <!-- 突发事件触发与自定义配置弹窗 -->
+    <IncidentTriggerModal
+      :is-open="isIncidentModalOpen"
+      @close="isIncidentModalOpen = false"
+      @confirm="handleIncidentConfirm"
+    />
+
     <!-- 提示词配置模态弹窗 -->
     <PromptEditorModal
       :is-open="isPromptModalOpen"
@@ -368,6 +388,7 @@ import WorldLoreModal from './components/WorldLoreModal.vue'
 import SystemConfigModal from './components/SystemConfigModal.vue'
 import QuickCharacterModal from './components/QuickCharacterModal.vue'
 import CardImportModal from './components/CardImportModal.vue'
+import IncidentTriggerModal from './components/IncidentTriggerModal.vue'
 import NeuToast from './components/NeuToast.vue'
 import { useWorldStore } from './stores/world'
 
@@ -384,6 +405,12 @@ const isLoreModalOpen = ref(false)
 const isConfigModalOpen = ref(false)
 const isQuickModalOpen = ref(false)
 const isImportModalOpen = ref(false)
+const isIncidentModalOpen = ref(false)
+
+const handleIncidentConfirm = (incidentDescription?: string) => {
+  isIncidentModalOpen.value = false
+  worldStore.triggerIncident(incidentDescription)
+}
 
 onMounted(async () => {
   await worldStore.initialize()
@@ -433,6 +460,15 @@ watch(
   () => worldStore.timeline.length,
   () => {
     scrollToBottom()
+  }
+)
+
+watch(
+  () => worldStore.streamingLog,
+  (val) => {
+    if (val) {
+      scrollToBottom()
+    }
   }
 )
 
@@ -629,6 +665,22 @@ const handleReset = async () => {
   font-size: 1.1rem;
 }
 
+.continue-btn {
+  background: var(--neu-surface);
+  color: var(--color-primary);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
+}
+
+.continue-btn:hover:not(:disabled) {
+  background: rgba(var(--color-primary-rgb), 0.08);
+  color: var(--color-primary-hover);
+  border-color: var(--color-primary);
+}
+
+.continue-icon {
+  color: var(--color-primary);
+}
+
 .incident-btn {
   background: var(--neu-accent);
   color: #ffffff;
@@ -642,19 +694,6 @@ const handleReset = async () => {
 
 .incident-icon {
   color: #ffffff;
-}
-
-/* 状态指示横幅 */
-.ticking-indicator-banner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.65rem 1rem;
-  margin: 0.5rem 1rem 0;
-  color: var(--neu-accent);
-  font-size: 0.85rem;
-  font-weight: 600;
 }
 
 .spin-icon {
@@ -917,6 +956,10 @@ const handleReset = async () => {
   font-size: 0.725rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+.mobile-bottom-btn.continue-accent {
+  color: var(--color-primary);
 }
 
 .mobile-bottom-btn.incident-accent {

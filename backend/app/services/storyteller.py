@@ -1,11 +1,16 @@
 import logging
 from typing import Optional, Callable, Any
 from sqlalchemy.orm import Session
-from app.models import Character, CharacterState
+from app.models import Character, CharacterState, CharacterRelationship
 from app.schemas import ArbitratorDelta, SimulationPromptConfig
 from app.services.llm_client import llm_client, strip_emojis
 from app.services.memory import MemoryService
-from app.services.prompt_library import build_storyteller_system_prompt, WORD_COUNT_TIERS
+from app.services.prompt_library import (
+    build_storyteller_system_prompt,
+    WORD_COUNT_TIERS,
+    build_present_npc_storyteller_prompt,
+    CONTINUATION_STORYTELLER_PROMPT,
+)
 
 logger = logging.getLogger("world_sim.storyteller")
 
@@ -27,11 +32,12 @@ class StorytellerService:
         delta: ArbitratorDelta,
         config: Optional[SimulationPromptConfig] = None,
         on_chunk: Optional[Callable[[str], Any]] = None,
+        is_continuation: bool = False,
     ) -> str:
         """
         Pass 2: 场景小说生成器 (Storyteller Engine)
         以第三人称有限视角，将 Pass 1 事实骨架转化为富有环境感官沉浸感的纯净小说正文
-        支持文风选择、技法补丁叠加与精细字数篇幅控制
+        支持文风选择、技法补丁叠加、精细字数篇幅控制、智能续写动态节律与在场多 NPC 群像法则
         """
         # 加载 10~15 轮 Deep Working Buffer
         recent_logs = MemoryService.get_tier2_working_buffer(db, character.id, limit=12)
@@ -67,6 +73,21 @@ class StorytellerService:
             sys_cfg = get_all_system_configs(db)
             enable_phone = sys_cfg.get("enable_phone_simulation", "false").lower() == "true"
 
+        # 检查在场 NPC，构建群像差异化表达指令
+        rel_records = (
+            db.query(CharacterRelationship)
+            .filter(CharacterRelationship.character_id == character.id)
+            .all()
+        )
+        present_npc_names = [r.npc_name for r in rel_records if r.is_present and r.npc_name]
+        npc_presence_block = ""
+        if present_npc_names:
+            npc_presence_block = f"\n{build_present_npc_storyteller_prompt(present_npc_names)}\n"
+
+        continuation_block = ""
+        if is_continuation:
+            continuation_block = f"\n{CONTINUATION_STORYTELLER_PROMPT}\n"
+
         # 动态构建严密的系统提示词
         system_prompt = build_storyteller_system_prompt(
             style_key=style_key,
@@ -99,12 +120,15 @@ class StorytellerService:
             f"{tier3_lore}\n\n"
             f"=== [本轮 Pass 1 客观裁决结果] ===\n"
             f"时间与地点: {delta.new_virtual_time} | {delta.new_location}\n"
+            f"实际推进时间跨度: {delta.simulated_hours_passed} 小时\n"
             f"生理与休眠判定: {'已进入睡眠状态' if delta.rest_decision.is_sleeping else '清醒活动中'} "
             f"({delta.rest_decision.rest_reason})\n"
             f"客观事实骨架 (Plot Beat): {delta.plot_beat}\n"
             f"感官线索 (Sensory Cues): {cues_text}\n"
             f"心理与神色: {delta.psychological_change}\n\n"
-            f"【叙事核心法则】: 必须紧扣主角的【当前推进目标】与【人际关系网（尤其是现场角色）】展开具有戏剧推进力的小说正文！若有在场 NPC，重点描写其言语交锋或互动；\n"
+            f"{npc_presence_block}"
+            f"{continuation_block}\n"
+            f"【叙事核心法则】: 必须紧扣主角的【当前推进目标】与【人际关系网（尤其是现场角色）】展开具有戏剧推进力的小说正文！若有在场 NPC，重点描写其言语交锋、心理防御与肢体微动作；\n"
             f"请严格依据设定的文风与规范，生成 {min_words} 至 {max_words} 字的纯净小说正文："
         )
 

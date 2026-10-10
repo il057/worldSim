@@ -5,7 +5,7 @@
       <div class="modal-header">
         <div class="header-title">
           <Icon icon="material-symbols:tune" class="title-icon" />
-          <h3>世界演化推演提示词与文学调优控制台</h3>
+          <h3>世界演化提示词</h3>
         </div>
         <button class="close-btn" @click="$emit('close')">
           <Icon icon="material-symbols:close" />

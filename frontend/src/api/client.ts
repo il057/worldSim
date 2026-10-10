@@ -176,7 +176,7 @@ export interface SimulationPromptConfig {
 }
 
 export interface SimStreamCallbacks {
-  onStatus?: (data: { stage: 'pass1' | 'pass2'; message: string }) => void
+  onStatus?: (data: { stage: 'pass1' | 'pass2' | 'incident_conceive' | string; message: string }) => void
   onPass1Done?: (data: { virtual_time: string; location: string; plot_beat: string }) => void
   onChunk?: (chunk: string) => void
   onFinish?: (data: StepTickResponse) => void
@@ -282,10 +282,12 @@ export const apiClient = {
   // 纯按钮推演控制 (普通非流式)
   step: (characterId: string, hours = 1, config?: SimulationPromptConfig) =>
     api.post<StepTickResponse>('/sim/step', { character_id: characterId, hours, config }),
+  continue: (characterId: string, config?: SimulationPromptConfig) =>
+    api.post<StepTickResponse>('/sim/continue', { character_id: characterId, config }),
   fastForward: (characterId: string, stepType: 'hour_6' | 'day_1', config?: SimulationPromptConfig) =>
     api.post<StepTickResponse>('/sim/fast-forward', { character_id: characterId, step_type: stepType, config }),
-  triggerIncident: (characterId: string, config?: SimulationPromptConfig) =>
-    api.post<StepTickResponse>('/sim/trigger-incident', { character_id: characterId, config }),
+  triggerIncident: (characterId: string, incidentDescription?: string, config?: SimulationPromptConfig) =>
+    api.post<StepTickResponse>('/sim/trigger-incident', { character_id: characterId, incident_description: incidentDescription, config }),
 
   // 纯按钮推演控制 (SSE 实时流式)
   stepStream: (
@@ -296,6 +298,13 @@ export const apiClient = {
     signal?: AbortSignal
   ) =>
     fetchSSE('/api/v1/sim/step-stream', { character_id: characterId, hours, config }, callbacks, signal),
+  continueStream: (
+    characterId: string,
+    config?: SimulationPromptConfig,
+    callbacks: SimStreamCallbacks = {},
+    signal?: AbortSignal
+  ) =>
+    fetchSSE('/api/v1/sim/continue-stream', { character_id: characterId, config }, callbacks, signal),
   fastForwardStream: (
     characterId: string,
     stepType: 'hour_6' | 'day_1',
@@ -306,11 +315,12 @@ export const apiClient = {
     fetchSSE('/api/v1/sim/fast-forward-stream', { character_id: characterId, step_type: stepType, config }, callbacks, signal),
   triggerIncidentStream: (
     characterId: string,
+    incidentDescription?: string,
     config?: SimulationPromptConfig,
     callbacks: SimStreamCallbacks = {},
     signal?: AbortSignal
   ) =>
-    fetchSSE('/api/v1/sim/trigger-incident-stream', { character_id: characterId, config }, callbacks, signal),
+    fetchSSE('/api/v1/sim/trigger-incident-stream', { character_id: characterId, incident_description: incidentDescription, config }, callbacks, signal),
 
   getPromptMeta: () => api.get<any>('/sim/prompt-meta'),
 
