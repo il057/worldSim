@@ -1033,15 +1033,15 @@ const hasInventoryDelta = computed(() => {
 }
 
 :deep(.prose-dialogue-double) {
-  color: var(--dialogue-double, #4338ca); /* 典雅深邃对白，深色下自适应高对比微光 */
+  color: var(--dialogue-double, var(--neu-accent)); /* 依据主题色动态衍生，自适应深浅背景 */
 }
 
 :deep(.prose-dialogue-corner) {
-  color: var(--dialogue-corner, #b45309); /* 东方角标引『』「」温暖金赭/琥珀色 */
+  color: var(--dialogue-corner, var(--neu-accent-hover)); /* 东方角标引『』「」，主题邻近微暖/高对比层次 */
 }
 
 :deep(.prose-dialogue-single) {
-  color: var(--dialogue-single, #0f766e); /* 沉静松石绿/薄荷绿，显现心理轻声 */
+  color: var(--dialogue-single, var(--neu-accent)); /* 单引号心绪/轻声，同主题淡雅微光 */
 }
 
 .delta-inspector {

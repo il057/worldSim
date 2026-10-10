@@ -14,9 +14,9 @@
   --neu-text-muted: #a0aec0;
   --neu-border: rgba(255, 255, 255, 0.45);
 
-  --dialogue-double: #4338ca;
-  --dialogue-corner: #b45309;
-  --dialogue-single: #0f766e;
+  --dialogue-double: var(--neu-accent);
+  --dialogue-corner: var(--neu-accent-hover);
+  --dialogue-single: var(--neu-accent);
 
   /* 兼容别名 */
   --neu-base: var(--neu-surface);
@@ -44,9 +44,9 @@ body[data-theme="dark"],
   --neu-text-muted: #64748b;
   --neu-border: rgba(255, 255, 255, 0.08);
 
-  --dialogue-double: #a5b4fc;
-  --dialogue-corner: #fcd34d;
-  --dialogue-single: #5eead4;
+  --dialogue-double: var(--neu-accent);
+  --dialogue-corner: var(--neu-accent-hover);
+  --dialogue-single: var(--neu-accent);
 
   --shadow-flat: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light);
   --shadow-flat-sm: 3px 3px 7px var(--neu-dark), -3px -3px 7px var(--neu-light);

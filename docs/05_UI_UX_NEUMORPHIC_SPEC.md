@@ -26,10 +26,10 @@
   --neu-text-muted: #a0aec0;
   --neu-border: rgba(255, 255, 255, 0.45);
 
-  /* 文学对白与特殊格式自适应设计令牌 */
-  --dialogue-double: #4338ca;  /* 浅色双引号对白（典雅靛蓝） */
-  --dialogue-corner: #b45309;  /* 浅色角标引『』「」（温润琥珀） */
-  --dialogue-single: #0f766e;  /* 浅色单引号心理（沉静松石绿） */
+  /* 文学对白与特殊格式自适应设计令牌（随主题色与深浅模式纯动态 HSL 衍生，绝不硬编码） */
+  --dialogue-double: var(--neu-accent);       /* 双引号对白（随主题色动态明暗映射） */
+  --dialogue-corner: var(--neu-accent-hover); /* 角标引『』「」（主题邻近色阶/层次微光） */
+  --dialogue-single: var(--neu-accent);       /* 单引号心理（主题色柔和变体） */
 
   /* 基础阴影公式 */
   --shadow-flat: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light);
@@ -52,10 +52,10 @@
   --neu-text-muted: #64748b;
   --neu-border: rgba(255, 255, 255, 0.08);
 
-  /* 文学对白深色高对比微光自适应 */
-  --dialogue-double: #a5b4fc;  /* 深色双引号对白（微光薰衣草紫） */
-  --dialogue-corner: #fcd34d;  /* 深色角标引『』「」（温暖金黄） */
-  --dialogue-single: #5eead4;  /* 深色单引号心理（清透薄荷绿） */
+  /* 文学对白深色高对比微光（随 activeColor 由 useTheme 动态计算注入，默认回退至主题变量） */
+  --dialogue-double: var(--neu-accent);
+  --dialogue-corner: var(--neu-accent-hover);
+  --dialogue-single: var(--neu-accent);
 
   --shadow-flat: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light);
   --shadow-flat-sm: 3px 3px 7px var(--neu-dark), -3px -3px 7px var(--neu-light);

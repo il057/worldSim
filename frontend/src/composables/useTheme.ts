@@ -58,6 +58,69 @@ function hexToRgb(hex: string): string {
   return `${r}, ${g}, ${b}`
 }
 
+function hexToHsl(hex: string): { h: number; s: number; l: number } {
+  let c = hex.replace('#', '')
+  if (c.length === 3) c = c.split('').map((x) => x + x).join('')
+  const num = parseInt(c, 16)
+  if (isNaN(num)) return { h: 231, s: 72, l: 63 }
+  const r = ((num >> 16) & 255) / 255
+  const g = ((num >> 8) & 255) / 255
+  const b = (num & 255) / 255
+
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  let h = 0
+  let s = 0
+  const l = (max + min) / 2
+
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0)
+        break
+      case g:
+        h = (b - r) / d + 2
+        break
+      case b:
+        h = (r - g) / d + 4
+        break
+    }
+    h = Math.round(h * 60)
+  }
+  return { h, s: Math.round(s * 100), l: Math.round(l * 100) }
+}
+
+/**
+ * 依据当前主题主色调 (themeColor) 纯动态衍生对白色彩体系
+ * 杜绝任何写死硬编码，随用户主题色与深浅模式智能映射
+ */
+function deriveDialogueColors(hex: string, isDark: boolean) {
+  const { h, s } = hexToHsl(hex)
+  const baseSat = Math.max(s, 30)
+
+  if (isDark) {
+    return {
+      // 主双引号对白：同色系高明度高对比微光，与主题色浑然一体
+      double: `hsl(${h}, ${Math.min(baseSat + 15, 95)}%, 76%)`,
+      // 东方角标引对白：偏暖向邻近色（+28度），典雅文学层次
+      corner: `hsl(${(h + 28) % 360}, ${Math.min(baseSat + 10, 90)}%, 74%)`,
+      // 单引号心绪/轻声：偏冷向邻近色（-28度），清润通透
+      single: `hsl(${(h - 28 + 360) % 360}, ${Math.min(baseSat + 10, 90)}%, 75%)`,
+    }
+  } else {
+    return {
+      // 主双引号对白：同色系深邃高对比度，保证浅色底上的极致清晰度
+      double: `hsl(${h}, ${Math.min(baseSat + 20, 95)}%, 32%)`,
+      // 东方角标引对白：偏暖向深色邻近色
+      corner: `hsl(${(h + 28) % 360}, ${Math.min(baseSat + 15, 90)}%, 34%)`,
+      // 单引号心绪/轻声：偏冷向深色邻近色
+      single: `hsl(${(h - 28 + 360) % 360}, ${Math.min(baseSat + 15, 90)}%, 33%)`,
+    }
+  }
+}
+
 // 应用主题变量到 DOM
 function applyTheme() {
   if (typeof document === 'undefined') return
@@ -79,8 +142,12 @@ function applyTheme() {
     document.body.setAttribute('data-theme', resolvedMode)
   }
 
+  const activeColor = themeColor.value || DEFAULT_THEME_COLOR
+  const hoverColor = computeHoverColor(activeColor)
+  const isDarkActive = resolvedMode === 'dark'
+
   // 直接写入最高优先级的全局 CSS 变量
-  if (resolvedMode === 'dark') {
+  if (isDarkActive) {
     root.style.setProperty('--neu-bg', '#1c2027')
     root.style.setProperty('--neu-surface', '#1c2027')
     root.style.setProperty('--neu-light', '#272d37')
@@ -89,9 +156,6 @@ function applyTheme() {
     root.style.setProperty('--neu-text-secondary', '#94a3b8')
     root.style.setProperty('--neu-text-muted', '#64748b')
     root.style.setProperty('--neu-border', 'rgba(255, 255, 255, 0.08)')
-    root.style.setProperty('--dialogue-double', '#a5b4fc')
-    root.style.setProperty('--dialogue-corner', '#fcd34d')
-    root.style.setProperty('--dialogue-single', '#5eead4')
   } else {
     root.style.setProperty('--neu-bg', '#e6e9ef')
     root.style.setProperty('--neu-surface', '#e6e9ef')
@@ -101,16 +165,18 @@ function applyTheme() {
     root.style.setProperty('--neu-text-secondary', '#718096')
     root.style.setProperty('--neu-text-muted', '#a0aec0')
     root.style.setProperty('--neu-border', 'rgba(255, 255, 255, 0.45)')
-    root.style.setProperty('--dialogue-double', '#4338ca')
-    root.style.setProperty('--dialogue-corner', '#b45309')
-    root.style.setProperty('--dialogue-single', '#0f766e')
   }
 
-  const activeColor = themeColor.value || DEFAULT_THEME_COLOR
-  const hoverColor = computeHoverColor(activeColor)
+  // 动态主题色及其 RGB 变量
   root.style.setProperty('--neu-accent', activeColor)
   root.style.setProperty('--neu-accent-hover', hoverColor)
   root.style.setProperty('--neu-accent-rgb', hexToRgb(activeColor))
+
+  // 动态与主题色深度绑定的对白颜色
+  const dialogueColors = deriveDialogueColors(activeColor, isDarkActive)
+  root.style.setProperty('--dialogue-double', dialogueColors.double)
+  root.style.setProperty('--dialogue-corner', dialogueColors.corner)
+  root.style.setProperty('--dialogue-single', dialogueColors.single)
 }
 
 // 监听系统深浅色切换
