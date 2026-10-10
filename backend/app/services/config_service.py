@@ -19,6 +19,7 @@ DEFAULT_CONFIGS: Dict[str, str] = {
     "llm_top_p": "1.0",
     "realtime_tick_hours": "1",
     "enable_stream_display": "true",
+    "enable_phone_simulation": "false",
 }
 
 

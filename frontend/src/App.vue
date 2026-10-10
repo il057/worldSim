@@ -37,7 +37,7 @@
             :disabled="worldStore.isTicking"
             @click="worldStore.runStep(1)"
           >
-            <Icon icon="material-symbols:step-forward" class="btn-symbol" />
+            <Icon icon="line-md:chevron-right" class="btn-symbol" />
             <span class="btn-text">+1h</span>
           </button>
 
@@ -47,7 +47,7 @@
             :disabled="worldStore.isTicking"
             @click="worldStore.runFastForward('hour_6')"
           >
-            <Icon icon="material-symbols:fast-forward" class="btn-symbol" />
+            <Icon icon="line-md:chevron-double-right" class="btn-symbol" />
             <span class="btn-text">+6h</span>
           </button>
 
@@ -57,7 +57,7 @@
             :disabled="worldStore.isTicking"
             @click="worldStore.runFastForward('day_1')"
           >
-            <Icon icon="material-symbols:skip-next" class="btn-symbol" />
+            <Icon icon="line-md:chevron-triple-right" class="btn-symbol" />
             <span class="btn-text">+24h</span>
           </button>
 
@@ -277,7 +277,7 @@
         :disabled="worldStore.isTicking"
         @click="worldStore.runStep(1)"
       >
-        <Icon icon="material-symbols:step-forward" />
+        <Icon icon="line-md:chevron-right" />
         <span>+1h</span>
       </button>
 
@@ -286,7 +286,7 @@
         :disabled="worldStore.isTicking"
         @click="worldStore.runFastForward('hour_6')"
       >
-        <Icon icon="material-symbols:fast-forward" />
+        <Icon icon="line-md:chevron-double-right" />
         <span>+6h</span>
       </button>
 
@@ -295,7 +295,7 @@
         :disabled="worldStore.isTicking"
         @click="worldStore.runFastForward('day_1')"
       >
-        <Icon icon="material-symbols:skip-next" />
+        <Icon icon="line-md:chevron-triple-right" />
         <span>+24h</span>
       </button>
 

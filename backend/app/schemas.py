@@ -199,6 +199,7 @@ class SimulationPromptConfig(BaseModel):
     custom_style_guidance: Optional[str] = ""
     pass1_custom_prompt: Optional[str] = None
     pass2_custom_prompt: Optional[str] = None
+    enable_phone_simulation: Optional[bool] = None
 
 
 class SimStepRequest(BaseModel):

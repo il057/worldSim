@@ -220,6 +220,23 @@
           </label>
         </div>
 
+        <!-- 9. 手机与社交网络交互拟真开关 -->
+        <div class="stream-toggle-row neu-inset-sm">
+          <div class="stream-info">
+            <div class="stream-title">
+              <Icon icon="material-symbols:phone-iphone" class="stream-icon" />
+              <span>手机与社交网络交互拟真 (Phone & Social Mode)</span>
+            </div>
+            <span class="stream-hint">
+              开启后，Pass 2 将注入手机与社交交互提示词，角色在适宜情境下可使用手机收发即时消息、语音、定位、转账，或浏览/发布朋友圈动态与网络论坛/社区热帖，并在时间线中渲染拟真卡片。
+            </span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="form.enable_phone_simulation" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
         <!-- 底部动作按钮 -->
         <div class="modal-actions">
           <NeuButton
@@ -281,6 +298,7 @@ const form = reactive({
   llm_top_p: 1.0,
   realtime_tick_hours: 1,
   enable_stream_display: true,
+  enable_phone_simulation: false,
 })
 
 const fetchConfig = async () => {
@@ -297,6 +315,8 @@ const fetchConfig = async () => {
     form.realtime_tick_hours = res.data.realtime_tick_hours ?? 1
     form.enable_stream_display =
       res.data.enable_stream_display !== false && res.data.enable_stream_display !== 'false'
+    form.enable_phone_simulation =
+      res.data.enable_phone_simulation === true || res.data.enable_phone_simulation === 'true'
 
     worldStore.setEnableStreamDisplay(form.enable_stream_display)
 
@@ -380,6 +400,7 @@ const handleSave = async () => {
       llm_top_p: form.llm_top_p,
       realtime_tick_hours: form.realtime_tick_hours,
       enable_stream_display: form.enable_stream_display,
+      enable_phone_simulation: form.enable_phone_simulation,
     })
     worldStore.setEnableStreamDisplay(form.enable_stream_display)
     toast.showSuccess('配置已成功保存', 'LLM 运行期参数、流式开关与采样配置已持久化至数据库并即时生效')

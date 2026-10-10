@@ -58,6 +58,15 @@ class StorytellerService:
         guidance = config.custom_style_guidance if config else ""
         custom_base = config.pass2_custom_prompt if config else None
 
+        # 检查是否激活手机与社交网络交互
+        enable_phone = False
+        if config and config.enable_phone_simulation is not None:
+            enable_phone = config.enable_phone_simulation
+        else:
+            from app.services.config_service import get_all_system_configs
+            sys_cfg = get_all_system_configs(db)
+            enable_phone = sys_cfg.get("enable_phone_simulation", "false").lower() == "true"
+
         # 动态构建严密的系统提示词
         system_prompt = build_storyteller_system_prompt(
             style_key=style_key,
@@ -67,6 +76,7 @@ class StorytellerService:
             enabled_patch_keys=patches,
             custom_guidance=guidance,
             custom_base_prompt=custom_base,
+            enable_phone_simulation=enable_phone,
         )
 
         goals_text = MemoryService.format_active_goals_block(state)

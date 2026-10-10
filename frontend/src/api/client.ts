@@ -172,6 +172,7 @@ export interface SimulationPromptConfig {
   custom_style_guidance?: string
   pass1_custom_prompt?: string
   pass2_custom_prompt?: string
+  enable_phone_simulation?: boolean
 }
 
 export interface SimStreamCallbacks {

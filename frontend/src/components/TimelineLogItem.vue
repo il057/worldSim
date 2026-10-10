@@ -24,18 +24,36 @@
       </div>
     </div>
 
-    <!-- 纯文学正文流 (Pass 2) 自然段落排版 -->
+    <!-- 纯文学正文流 (Pass 2) 自然段落与拟真手机组件混排 -->
     <div class="log-prose prose-literary" :class="{ 'is-streaming-text': isStreaming }">
-      <p
-        v-for="(para, pIdx) in paragraphs"
-        :key="pIdx"
-        class="prose-paragraph"
-      >
-        {{ para }}<span v-if="isStreaming && pIdx === paragraphs.length - 1" class="typing-cursor"></span>
-      </p>
+      <template v-for="(block, bIdx) in contentBlocks" :key="bIdx">
+        <!-- 1. 普通纯文学段落 (支持双引号“”与角标引「」等多重对白色彩高亮) -->
+        <p v-if="block.type === 'text'" class="prose-paragraph">
+          <span v-html="formatProseText(block.content)"></span><span v-if="isStreaming && bIdx === contentBlocks.length - 1" class="typing-cursor"></span>
+        </p>
+
+        <!-- 2. 朋友圈动态 -->
+        <PhoneMomentsCard
+          v-else-if="block.type === 'moments'"
+          :posts="block.posts"
+        />
+
+        <!-- 3. 网络论坛 / 社区热帖 (BBS) -->
+        <PhoneForumCard
+          v-else-if="block.type === 'forum'"
+          :data="block.data"
+        />
+
+        <!-- 4. 手机即时通讯消息组 (私信/语音/定位/转账) -->
+        <PhoneChatGroup
+          v-else-if="block.type === 'chat'"
+          :items="block.items"
+          :protagonist-name="characterName"
+        />
+      </template>
 
       <!-- 流式等待起步时的占位打字机指示 -->
-      <div v-if="isStreaming && paragraphs.length === 0" class="streaming-placeholder">
+      <div v-if="isStreaming && contentBlocks.length === 0" class="streaming-placeholder">
         <Icon icon="material-symbols:ink-pen" class="streaming-pen-icon" />
         <span>Pass 2 正在以有限视角构思文学笔触...</span>
         <span class="typing-cursor"></span>
@@ -120,6 +138,11 @@
 import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import NeuCard from './NeuCard.vue'
+import PhoneMomentsCard from './phone/PhoneMomentsCard.vue'
+import PhoneForumCard from './phone/PhoneForumCard.vue'
+import PhoneChatGroup from './phone/PhoneChatGroup.vue'
+import { parseProseIntoBlocks } from '../utils/phoneParser'
+import { useWorldStore } from '../stores/world'
 import type { StoryLogView } from '../api/client'
 
 const props = defineProps<{
@@ -128,6 +151,9 @@ const props = defineProps<{
   isStreaming?: boolean
 }>()
 
+const worldStore = useWorldStore()
+const characterName = computed(() => worldStore.currentDetail?.name || '')
+
 const isExpanded = ref(false)
 
 const formatDelta = (val: number) => {
@@ -135,13 +161,40 @@ const formatDelta = (val: number) => {
   return `${val}`
 }
 
-const paragraphs = computed(() => {
+const contentBlocks = computed(() => {
   if (!props.log.narrative_prose) return []
-  return props.log.narrative_prose
-    .split(/\n+/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0)
+  return parseProseIntoBlocks(props.log.narrative_prose)
 })
+
+/**
+ * 将文学段落中的各类对白/心绪引用赋予不同的雅致色彩
+ * 支持双引号 “...”, 角标引 「...」与『...』, 单引号 ‘...’, 英文双引号 "..."
+ */
+const formatProseText = (raw: string): string => {
+  if (!raw) return ''
+  const escaped = raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
+  let formatted = escaped.replace(
+    /(「[^」\n]*[」]?|『[^』\n]*[』]?)/g,
+    '<span class="prose-dialogue prose-dialogue-corner">$1</span>'
+  )
+
+  formatted = formatted.replace(
+    /(‘[^’\n]*[’]?)/g,
+    '<span class="prose-dialogue prose-dialogue-single">$1</span>'
+  )
+
+  formatted = formatted.replace(
+    /(“[^”\n]*[”]?|&quot;[^&"\n]*(&quot;)?)/g,
+    '<span class="prose-dialogue prose-dialogue-double">$1</span>'
+  )
+
+  return formatted
+}
 
 const hasInventoryDelta = computed(() => {
   const inv = props.log.delta_snapshot?.inventory_delta
@@ -275,6 +328,24 @@ const hasInventoryDelta = computed(() => {
 
 .prose-paragraph:last-child {
   margin-bottom: 0;
+}
+
+:deep(.prose-dialogue) {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: color 0.15s ease;
+}
+
+:deep(.prose-dialogue-double) {
+  color: #3730a3; /* 典雅深邃的靛蓝对白，区别于正文普通文本 */
+}
+
+:deep(.prose-dialogue-corner) {
+  color: #b45309; /* 东方角标引『』「」温暖沉稳的琥珀/金赭色，显现机锋留白 */
+}
+
+:deep(.prose-dialogue-single) {
+  color: #0f766e; /* 沉静松石绿，显现心理轻声或自言自语 */
 }
 
 .delta-inspector {
