@@ -116,12 +116,3 @@ docker build -t world-sim:latest .
 docker run -d -p 8080:8080 -v $(pwd)/data:/data world-sim:latest
 ```
 服务启动后，在浏览器访问 `http://localhost:8080` 即可开始虚拟角色世界演化。
-
----
-
-## 全局工程铁律 (Engineering Invariants)
-
-1. **绝对无 Emoji 规范**：全工程严禁出现任何 Emoji。图标一律采用 `@iconify/vue` 搭配 `material-symbols` 图标集。
-2. **纯按钮无文本框交互**：推演界面不提供任何人类用户输入框，用户为纯粹旁观者。
-3. **两步解耦推演**：Pass 1 负责逻辑与数值，Pass 2 负责纯文学正文，严禁单步混合生成。
-4. **单容器与单端口交付**：静态产物由 FastAPI 托管，统一 8080 端口暴露。
