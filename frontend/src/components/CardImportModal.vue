@@ -816,7 +816,7 @@ const handleImport = async () => {
 .modal-card {
   width: 100%;
   max-width: 860px;
-  background: #f0f3f8;
+  background: var(--neu-surface);
   max-height: 92vh;
   display: flex;
   flex-direction: column;
@@ -1063,7 +1063,7 @@ const handleImport = async () => {
 
 .tab-btn.active {
   color: var(--neu-accent);
-  background: #f0f3f8;
+  background: var(--neu-surface);
   box-shadow: var(--shadow-sm);
 }
 
@@ -1115,7 +1115,7 @@ const handleImport = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #e2e8f0;
+  background: var(--neu-surface);
   color: var(--neu-text-secondary);
 }
 
@@ -1229,9 +1229,9 @@ const handleImport = async () => {
 .neu-input {
   padding: 0.55rem 0.75rem;
   font-size: 0.825rem;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--neu-border, rgba(0, 0, 0, 0.08));
   border-radius: 8px;
-  background: #f0f3f8;
+  background: var(--neu-surface);
   box-shadow: var(--shadow-inset-sm);
   color: var(--neu-text-primary);
   outline: none;

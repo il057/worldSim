@@ -17,6 +17,7 @@ DEFAULT_CONFIGS: Dict[str, str] = {
     "llm_frequency_penalty": "0.0",
     "llm_presence_penalty": "0.0",
     "llm_top_p": "1.0",
+    "enable_realtime_sync": "false",
     "realtime_tick_hours": "1",
     "enable_stream_display": "true",
     "enable_phone_simulation": "false",
@@ -106,8 +107,15 @@ def sync_config_to_runtime(cfg: Optional[Dict[str, str]] = None) -> None:
     except ValueError:
         llm_client.top_p = 1.0
 
+    from app.config import settings
+    settings.ENABLE_REALTIME_SYNC = cfg.get("enable_realtime_sync", "false").lower() == "true"
+    try:
+        settings.REALTIME_TICK_HOURS = max(1, int(cfg.get("realtime_tick_hours", "1")))
+    except ValueError:
+        settings.REALTIME_TICK_HOURS = 1
+
     logger.info(
-        "系统 LLM 运行期配置已热更新，模型: %s, 目标: %s, 上下文上限: %d, 温度: %.2f, 频率惩罚: %.2f, 存在惩罚: %.2f, Top P: %.2f",
+        "系统 LLM 运行期配置已热更新，模型: %s, 目标: %s, 上下文上限: %d, 温度: %.2f, 频率惩罚: %.2f, 存在惩罚: %.2f, Top P: %.2f, 现实同步演化: %s(每 %d 小时)",
         llm_client.model_name,
         llm_client.base_url,
         llm_client.context_window,
@@ -115,4 +123,6 @@ def sync_config_to_runtime(cfg: Optional[Dict[str, str]] = None) -> None:
         llm_client.frequency_penalty,
         llm_client.presence_penalty,
         llm_client.top_p,
+        "开启" if settings.ENABLE_REALTIME_SYNC else "关闭",
+        settings.REALTIME_TICK_HOURS,
     )

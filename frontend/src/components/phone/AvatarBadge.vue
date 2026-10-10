@@ -42,13 +42,15 @@ const initial = computed(() => {
   return cleanName.value ? cleanName.value.slice(0, 1) : '友'
 })
 
-// 优先采用显式传入头像；缺省时采用贴合全局 UI 配色的 DiceBear Slice 风格接口
+import { useTheme } from '../../composables/useTheme'
+
+const { getDicebearAvatarUrl } = useTheme()
+
+// 优先采用显式传入头像；缺省时采用贴合全局主题色与深浅背景的 DiceBear Slice 风格接口
 const resolvedAvatarUrl = computed(() => {
   if (props.avatarUrl) return props.avatarUrl
   if (!cleanName.value) return ''
-  const seed = encodeURIComponent(cleanName.value)
-  // 符合项目新拟态冷灰低饱和调性的 DiceBear Slice 头像
-  return `https://api.dicebear.com/10.x/slice/svg?seed=${seed}&backgroundColor=e6e9ef,d9dde5,f0f3f8&bodyColor=4a4a50,63636a,37373c,757580,5e72e4`
+  return getDicebearAvatarUrl(cleanName.value)
 })
 
 // 离线/网络加载失败时的自适应渐变保底

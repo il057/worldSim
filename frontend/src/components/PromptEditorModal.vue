@@ -560,7 +560,7 @@ const resetToDefaults = () => {
   max-width: 940px;
   height: 86vh;
   max-height: 86vh;
-  background: #f0f3f8;
+  background: var(--neu-surface);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -644,9 +644,9 @@ const resetToDefaults = () => {
 }
 
 .tab-btn.active {
-  background: #f0f3f8;
+  background: var(--neu-surface);
   color: var(--neu-accent);
-  box-shadow: 2px 2px 5px rgba(166, 175, 195, 0.6), -2px -2px 5px rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-flat-sm);
 }
 
 .tab-icon {

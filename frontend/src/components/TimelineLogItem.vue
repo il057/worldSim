@@ -537,7 +537,7 @@ const hasInventoryDelta = computed(() => {
 <style scoped>
 .timeline-log-card {
   margin-bottom: 1.5rem;
-  background: #f0f3f8;
+  background: var(--neu-surface);
   border-left: 4px solid var(--neu-accent);
 }
 
@@ -555,7 +555,7 @@ const hasInventoryDelta = computed(() => {
   font-size: 0.725rem;
   color: var(--neu-text-secondary);
   font-weight: 600;
-  background: var(--neu-base);
+  background: var(--neu-surface);
   box-shadow: 1px 1px 3px var(--neu-shadow-dark), -1px -1px 3px var(--neu-shadow-light);
 }
 
@@ -568,7 +568,7 @@ const hasInventoryDelta = computed(() => {
   font-size: 0.725rem;
   color: var(--neu-accent);
   font-weight: 600;
-  background: var(--neu-base);
+  background: var(--neu-surface);
   box-shadow: 1px 1px 3px var(--neu-shadow-dark), -1px -1px 3px var(--neu-shadow-light);
 }
 
@@ -670,7 +670,8 @@ const hasInventoryDelta = computed(() => {
   padding: 0.75rem 1rem;
   border-radius: 8px;
   border-left: 3px solid var(--neu-accent);
-  background: rgba(240, 243, 248, 0.75);
+  background: var(--neu-surface);
+  box-shadow: var(--shadow-flat-sm);
 }
 
 .divine-result-header {
@@ -695,7 +696,7 @@ const hasInventoryDelta = computed(() => {
 .divine-result-prose {
   font-size: 0.85rem;
   line-height: 1.6;
-  color: #374151;
+  color: var(--neu-text-primary);
 }
 
 .log-header {
@@ -852,7 +853,7 @@ const hasInventoryDelta = computed(() => {
 
 .bar-btn:hover:not(:disabled) {
   color: var(--neu-accent);
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.12);
 }
 
 .bar-btn:disabled {
@@ -862,13 +863,13 @@ const hasInventoryDelta = computed(() => {
 
 .bar-btn.is-active {
   color: var(--neu-accent);
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--neu-surface);
   box-shadow: 1px 1px 2px var(--neu-shadow-dark);
 }
 
 .bar-btn-danger:hover:not(:disabled) {
   color: var(--neu-danger) !important;
-  background: #fee2e2 !important;
+  background: rgba(229, 62, 62, 0.15) !important;
 }
 
 .bar-icon {
@@ -912,11 +913,11 @@ const hasInventoryDelta = computed(() => {
   border: none;
   outline: none;
   border-radius: 10px;
-  background: #f8fafc;
-  box-shadow: inset 2px 2px 5px rgba(166, 175, 195, 0.5), inset -2px -2px 5px rgba(255, 255, 255, 0.9);
+  background: var(--neu-surface);
+  box-shadow: var(--shadow-inset-sm);
   font-size: 0.95rem;
   line-height: 1.85;
-  color: #1f2937;
+  color: var(--neu-text-primary);
   font-family: inherit;
   resize: vertical;
   min-height: 160px;
@@ -924,8 +925,7 @@ const hasInventoryDelta = computed(() => {
 }
 
 .prose-edit-textarea:focus {
-  box-shadow: inset 2px 2px 5px rgba(166, 175, 195, 0.7), inset -2px -2px 5px rgba(255, 255, 255, 0.9),
-    0 0 0 2px rgba(99, 102, 241, 0.25);
+  box-shadow: var(--shadow-inset), 0 0 0 2px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.35);
 }
 
 .edit-toolbar {
@@ -1011,7 +1011,7 @@ const hasInventoryDelta = computed(() => {
 
 .log-prose {
   font-size: 0.975rem;
-  color: #24292e;
+  color: var(--neu-text-primary);
   line-height: 1.95;
   margin-bottom: 1rem;
 }
@@ -1033,15 +1033,15 @@ const hasInventoryDelta = computed(() => {
 }
 
 :deep(.prose-dialogue-double) {
-  color: #3730a3; /* 典雅深邃的靛蓝对白，区别于正文普通文本 */
+  color: var(--dialogue-double, #4338ca); /* 典雅深邃对白，深色下自适应高对比微光 */
 }
 
 :deep(.prose-dialogue-corner) {
-  color: #b45309; /* 东方角标引『』「」温暖沉稳的琥珀/金赭色，显现机锋留白 */
+  color: var(--dialogue-corner, #b45309); /* 东方角标引『』「」温暖金赭/琥珀色 */
 }
 
 :deep(.prose-dialogue-single) {
-  color: #0f766e; /* 沉静松石绿，显现心理轻声或自言自语 */
+  color: var(--dialogue-single, #0f766e); /* 沉静松石绿/薄荷绿，显现心理轻声 */
 }
 
 .delta-inspector {

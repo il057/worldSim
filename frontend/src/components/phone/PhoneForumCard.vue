@@ -375,11 +375,11 @@ const statsParts = computed(() => {
   gap: 0.45rem;
   padding: 0.55rem 0.95rem;
   margin: 0.25rem 1.15rem 0.85rem;
-  background: #fef2f2;
-  box-shadow: inset 1px 1px 3px rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: 8px;
   font-size: 0.75rem;
-  color: #dc2626;
+  color: var(--neu-danger);
 }
 
 .locked-icon {

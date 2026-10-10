@@ -121,6 +121,7 @@
 import { ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import NeuButton from './NeuButton.vue'
+import { useTheme } from '../composables/useTheme'
 import type { StoryLogView } from '../api/client'
 
 const props = withDefaults(
@@ -143,6 +144,8 @@ defineEmits<{
   (e: 'open-import'): void
 }>()
 
+const { getDicebearAvatarUrl } = useTheme()
+
 const activeTab = ref<'timeline' | 'roster'>(props.initialTab)
 
 // 头像三级优雅降级策略：自定义 URL -> DiceBear Slice 风格接口 -> SVG 保底
@@ -151,9 +154,7 @@ const failedDicebearAvatars = ref<Record<string, boolean>>({})
 
 function getDicebearUrl(name?: string): string {
   const cleanName = (name || '').trim().replace(/^来自\s+/, '') || 'char'
-  const seed = encodeURIComponent(cleanName)
-  // 符合项目新拟态冷灰低饱和调性的 DiceBear Slice 头像
-  return `https://api.dicebear.com/10.x/slice/svg?seed=${seed}&backgroundColor=e6e9ef,d9dde5,f0f3f8&bodyColor=4a4a50,63636a,37373c,757580,5e72e4`
+  return getDicebearAvatarUrl(cleanName)
 }
 
 function getCharacterAvatarUrl(char: any): string | null {

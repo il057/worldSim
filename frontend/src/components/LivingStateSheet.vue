@@ -141,7 +141,6 @@
             :class="{ 'added-dot': isItemAdded(item) }"
           />
           <span class="item-text">{{ item }}</span>
-          <span v-if="isItemAdded(item)" class="item-added-badge">新获</span>
         </span>
       </div>
       <div v-else class="empty-hint">背包空无一物</div>
@@ -342,6 +341,7 @@ import { Icon } from '@iconify/vue'
 import NeuCard from './NeuCard.vue'
 import NeuMeter from './NeuMeter.vue'
 import { useWorldStore } from '../stores/world'
+import { useTheme } from '../composables/useTheme'
 import type {
   CharacterDetailView,
   CharacterStateView,
@@ -353,6 +353,7 @@ const props = defineProps<{
 }>()
 
 const worldStore = useWorldStore()
+const { getDicebearAvatarUrl } = useTheme()
 
 // 头像三级优雅降级策略：自定义 URL -> DiceBear Slice 风格接口 -> SVG 保底
 const failedCustomAvatar = ref(false)
@@ -372,8 +373,7 @@ const resolvedAvatarUrl = computed(() => {
   }
   if (!failedDicebearAvatar.value) {
     const cleanName = (props.character?.name || '').trim().replace(/^来自\s+/, '') || 'char'
-    const seed = encodeURIComponent(cleanName)
-    return `https://api.dicebear.com/10.x/slice/svg?seed=${seed}&backgroundColor=e6e9ef,d9dde5,f0f3f8&bodyColor=4a4a50,63636a,37373c,757580,5e72e4`
+    return getDicebearAvatarUrl(cleanName)
   }
   return ''
 })

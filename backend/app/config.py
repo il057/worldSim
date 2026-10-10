@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     PORT: int = 8080
     HOST: str = "0.0.0.0"
     LOG_LEVEL: str = "INFO"
+    ENABLE_REALTIME_SYNC: bool = False
     REALTIME_TICK_HOURS: int = 1
     STATIC_DIR: str = os.path.join(BASE_DIR, "static")
 

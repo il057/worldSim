@@ -222,7 +222,7 @@ const handleSubmit = async () => {
   max-width: 620px;
   max-height: 90vh;
   overflow-y: auto;
-  background: #f0f3f8;
+  background: var(--neu-surface);
 }
 
 .modal-header {

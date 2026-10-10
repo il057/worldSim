@@ -79,12 +79,12 @@ onUnmounted(() => {
 .confirm-card {
   width: 100%;
   max-width: 460px;
-  background: #f0f3f8;
+  background: var(--neu-surface);
   border-radius: 18px;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  box-shadow: 10px 10px 25px rgba(166, 175, 195, 0.7), -10px -10px 25px rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-hover);
 }
 
 .confirm-body {
@@ -110,17 +110,17 @@ onUnmounted(() => {
 
 .confirm-icon-wrap.is-danger {
   color: var(--neu-danger);
-  background: #fff0f0;
+  background: rgba(229, 62, 62, 0.12);
 }
 
 .confirm-icon-wrap.is-warning {
   color: var(--neu-warning);
-  background: #fffaf0;
+  background: rgba(221, 107, 32, 0.12);
 }
 
 .confirm-icon-wrap.is-primary {
   color: var(--neu-accent);
-  background: #f0f4ff;
+  background: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.12);
 }
 
 .confirm-content {

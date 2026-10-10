@@ -7,10 +7,10 @@
 新拟态（Neumorphic / Soft UI）的本质是通过模拟单一平行光源在物体表面投射形成的柔和双向阴影（受光高亮与背光暗影），营造出犹如从背景中“挤压浮现”或“内凹压入”的物理质感。
 
 ### 1.1 全局色彩与 CSS 变量体系
-整体基调采用干净、柔和、低饱和度的冷灰/暖灰色调，严禁刺眼的高饱和对比色。
+整体基调采用干净、柔和、低饱和度的冷灰/暖灰色调，严禁刺眼的高饱和对比色。系统支持浅色（Light）、深色（Dark）与跟随系统（Auto）三种模式，并支持 7 款精调强调色及自定义十六进制色彩。
 
 ```css
-/* 核心设计令牌 (Design Tokens) */
+/* 核心设计令牌 (Design Tokens - 浅色模式) */
 :root {
   --neu-bg: #e6e9ef;
   --neu-surface: #e6e9ef;
@@ -20,16 +20,59 @@
   --neu-dark: #c4c9d4;
   
   --neu-accent: #5e72e4;
+  --neu-accent-hover: #4b5ecc;
   --neu-text-primary: #2d3748;
   --neu-text-secondary: #718096;
+  --neu-text-muted: #a0aec0;
+  --neu-border: rgba(255, 255, 255, 0.45);
+
+  /* 文学对白与特殊格式自适应设计令牌 */
+  --dialogue-double: #4338ca;  /* 浅色双引号对白（典雅靛蓝） */
+  --dialogue-corner: #b45309;  /* 浅色角标引『』「」（温润琥珀） */
+  --dialogue-single: #0f766e;  /* 浅色单引号心理（沉静松石绿） */
 
   /* 基础阴影公式 */
   --shadow-flat: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light);
+  --shadow-flat-sm: 3px 3px 7px var(--neu-dark), -3px -3px 7px var(--neu-light);
   --shadow-hover: 8px 8px 18px var(--neu-dark), -8px -8px 18px var(--neu-light);
   --shadow-active: inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light);
   --shadow-inset: inset 5px 5px 10px var(--neu-dark), inset -5px -5px 10px var(--neu-light);
+  --shadow-inset-sm: inset 2px 2px 5px var(--neu-dark), inset -2px -2px 5px var(--neu-light);
+}
+
+/* 沉浸式新拟态深色模式设计令牌 (Dark Mode) */
+[data-theme="dark"] {
+  --neu-bg: #1c2027;
+  --neu-surface: #1c2027;
+  --neu-light: #272d37;
+  --neu-dark: #121419;
+  
+  --neu-text-primary: #e2e8f0;
+  --neu-text-secondary: #94a3b8;
+  --neu-text-muted: #64748b;
+  --neu-border: rgba(255, 255, 255, 0.08);
+
+  /* 文学对白深色高对比微光自适应 */
+  --dialogue-double: #a5b4fc;  /* 深色双引号对白（微光薰衣草紫） */
+  --dialogue-corner: #fcd34d;  /* 深色角标引『』「」（温暖金黄） */
+  --dialogue-single: #5eead4;  /* 深色单引号心理（清透薄荷绿） */
+
+  --shadow-flat: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light);
+  --shadow-flat-sm: 3px 3px 7px var(--neu-dark), -3px -3px 7px var(--neu-light);
+  --shadow-hover: 8px 8px 18px var(--neu-dark), -8px -8px 18px var(--neu-light);
+  --shadow-active: inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light);
+  --shadow-inset: inset 5px 5px 10px var(--neu-dark), inset -5px -5px 10px var(--neu-light);
+  --shadow-inset-sm: inset 2px 2px 5px var(--neu-dark), inset -2px -2px 5px var(--neu-light);
 }
 ```
+
+### 1.2 主题色与外观控制架构 (`useTheme.ts`)
+- **预设色系 (Presets)**：经典靛蓝 (`#5e72e4`)、极光湖蓝 (`#0ea5e9`)、翡翠青碧 (`#10b981`)、琉璃琥珀 (`#f59e0b`)、绯红蔷薇 (`#f43f5e`)、暮光罗兰 (`#8b5cf6`)、玄石冷墨 (`#64748b`)。
+- **自定义拾色**：支持十六进制原生拾色器，动态计算加深悬停色（Hover Color）及 RGB 数组，即时注入 `--neu-accent`、`--neu-accent-hover` 与 `--neu-accent-rgb`。
+- **DiceBear 头像联动**：`useTheme` 提供统一的 `getDicebearAvatarUrl`，DiceBear Slice 的背景色 (`backgroundColor`) 随深浅模式动态适配，人像点缀色 (`bodyColor`) 动态同步当前主题主色调。
+- **顶部微光进度条联动**：演化长卷标头进度槽彻底去除硬编码紫色，纯粹使用 `linear-gradient(90deg, var(--neu-accent) 0%, var(--neu-accent-hover) 100%)`。
+- **持久化契约**：前端通过 `localStorage` 保持 0ms 闪避加载，同时保存时同步持久化至后端 SQLite `system_configs`（`theme_mode` 与 `theme_color`）。
+- **紧凑折叠优化**：`SystemConfigModal` 中针对推演采样参数（温度、Top P、存在/频率惩罚、上下文上限、同步步长）提供轻量级 Neumorphic 折叠手风琴卡片，默认收起并展示参数摘要，防止设置弹窗纵向过长。
 
 ---
 
@@ -85,7 +128,13 @@
 1. **Header 职责纯粹化**：Header 不保留角色新建/导入按钮（统一归入左侧“角色菜单”内管理），不保留看板折叠按钮（看板常驻）。仅作为全局环境控制（时钟、推进、提示词、世界书、系统设置、重置）；
 2. **看板常驻化 (Permanent Dashboard)**：PC 端右侧 Living State 看板常驻展现，去除所有多余的标签切换和关闭按钮；
 3. **工具与法则弹窗化 (Modals)**：点击 Header 的 [提示词]、[世界书]、[设置] 时，分别呼出专用的大尺寸新拟态模态弹窗，操作完毕即可关闭，完全不破坏小说长卷与右侧常驻角色状态的对照体验；
-4. **移动端深度自适应 (Mobile Responsive Adaptation)**：
+4. **桌面端视口三栏常驻贴底与长卷沉浸无界阅读 (Desktop Viewport App Layout & Immersive Stream)**：
+   - PC 宽屏端采用应用级视口全屏布局（`height: 100vh; overflow: hidden;`），顶部导航栏固定，工作区（`workspace-container`）占据视口剩余空间，解除静态 `max-width` 限制以全宽充满（`width: 100%`），使左右抽屉在大屏（1920px+）下像素级紧贴屏幕左右边缘，与顶部 Header 两端严密垂直对齐；
+   - 左侧角色目录抽屉与右侧看板抽屉高度撑满工作区（`height: 100%;`），始终紧贴屏幕底部，两栏内部各自独立滚动；
+   - **材质底色严格统一（Single Neumorphic Surface）**：全站卡片（包括中间 `TimelineLogItem` 与两侧抽屉、顶栏）底色严格统一继承全局 CSS 变量 `--neu-surface`（`#e6e9ef`），严禁在正文卡片中私自硬编码覆盖泛白底色（如 `#f0f3f8`），确保“同一块物理材质由光影浮起”的正统新拟态质感；
+   - **中间长卷沉浸化与悬空滚动条去噪**：中间小说正文流（`center-novel-stream`）自包含独立平滑滚动，并全面隐藏原生外部悬空滚动条（`scrollbar-width: none; ::-webkit-scrollbar: none;`），消除卡片与右看板间隙中突兀的机械线条；
+   - **标头与微光阅读进度条常驻顶端**：演化长卷标头（`stream-top-bar`）作为中间栏的固定顶层结构（`flex-shrink: 0; z-index: 10;`），与下方正文切片可滚动视口（`stream-scroll-viewport`）解耦。标头底部的 2.5px 微光渐变阅读进度条始终稳固常驻在顶部，向下滚动时随阅读深度平滑生长，绝不随正文滚出视口；正文卡片平滑从标头下方穿过；
+5. **移动端深度自适应 (Mobile Responsive Adaptation)**：
    - 在移动端或窄屏设备（宽度 < 1024px）下，左侧菜单与右侧看板自动转换为滑出式覆盖抽屉（Overlay Drawer），带有毛玻璃背板遮罩（Backdrop）；
    - 移动端顶部仅保留精简时钟、左侧抽屉开关与右侧多功能图标，步进按钮与看板按钮自动收纳至移动端专用的底部拇指操作栏（Bottom Floating Bar），彻底解决按钮换行溢出的问题；
    - 支持在角色卡片、名录以及看板中以微凸外圈无损展示酒馆 PNG 角色头像。

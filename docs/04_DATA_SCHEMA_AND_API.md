@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS character_relationships (
 -- 6. 系统运行期配置与 LLM 连接参数表 (system_configs)
 -- 替代 .env 敏感与动态配置，实现 Web UI 在线配置与持久化
 CREATE TABLE IF NOT EXISTS system_configs (
-    key TEXT PRIMARY KEY,                      -- 配置键 (如 'llm_base_url', 'llm_api_key', 'llm_model_name', 'llm_context_window', 'realtime_tick_hours', 'enable_stream_display', 'enable_phone_simulation')
+    key TEXT PRIMARY KEY,                      -- 配置键 (如 'llm_base_url', 'llm_api_key', 'llm_model_name', 'llm_context_window', 'enable_realtime_sync', 'realtime_tick_hours', 'enable_stream_display', 'enable_phone_simulation', 'theme_mode', 'theme_color')
     value TEXT NOT NULL,                       -- 配置值文本
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

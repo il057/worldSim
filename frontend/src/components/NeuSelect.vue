@@ -295,9 +295,9 @@ watch(() => props.disabled, (disabled) => {
   top: calc(100% + 6px);
   left: 0;
   width: 100%;
-  background: #f0f3f8;
+  background: var(--neu-surface);
   border-radius: 12px;
-  box-shadow: 6px 8px 20px rgba(166, 175, 195, 0.65), -6px -8px 20px rgba(255, 255, 255, 0.9);
+  box-shadow: 6px 8px 20px var(--neu-dark), -6px -8px 20px var(--neu-light);
   z-index: 1050;
   padding: 0.45rem;
   display: flex;

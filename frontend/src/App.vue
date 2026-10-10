@@ -192,6 +192,7 @@
 
       <!-- B. 中间核心：场景小说长卷阅读流 (Novel Timeline Stream) -->
       <main class="center-novel-stream">
+        <!-- 始终常驻在顶部的演化长卷标头与微光阅读进度条 -->
         <div class="stream-top-bar neu-flat-sm">
           <div class="stream-title-group">
             <Icon icon="material-symbols:auto-stories" class="book-icon" />
@@ -204,33 +205,44 @@
               累计 {{ worldStore.timeline.length }} 刻故事切片
             </span>
           </div>
+          <!-- 极简沉浸式阅读进度微光指示槽 (始终常驻顶部，随长卷向下滚动平滑生长) -->
+          <div class="read-progress-track" title="阅读进度">
+            <div class="read-progress-fill" :style="{ width: `${readProgress}%` }" />
+          </div>
         </div>
 
-        <!-- 小说正文切片流水 -->
-        <div v-if="worldStore.timeline.length || worldStore.streamingLog" class="stream-card-list" ref="streamContainer">
-          <div
-            v-for="(log, idx) in worldStore.timeline"
-            :key="log.id"
-            :id="`log-${log.id}`"
-            class="log-anchor-wrapper"
-          >
-            <TimelineLogItem
-              :log="log"
-              :is-latest="idx === worldStore.timeline.length - 1 && !worldStore.streamingLog"
-            />
-          </div>
+        <!-- 小说正文切片可滚动长卷流 (独立视口) -->
+        <div
+          v-if="worldStore.timeline.length || worldStore.streamingLog"
+          class="stream-scroll-viewport"
+          ref="centerStreamRef"
+          @scroll="handleStreamScroll"
+        >
+          <div class="stream-card-list">
+            <div
+              v-for="(log, idx) in worldStore.timeline"
+              :key="log.id"
+              :id="`log-${log.id}`"
+              class="log-anchor-wrapper"
+            >
+              <TimelineLogItem
+                :log="log"
+                :is-latest="idx === worldStore.timeline.length - 1 && !worldStore.streamingLog"
+              />
+            </div>
 
-          <!-- 实时流式切片卡片 -->
-          <div
-            v-if="worldStore.streamingLog"
-            id="log-streaming"
-            class="log-anchor-wrapper"
-          >
-            <TimelineLogItem
-              :log="worldStore.streamingLog"
-              :is-latest="true"
-              :is-streaming="true"
-            />
+            <!-- 实时流式切片卡片 -->
+            <div
+              v-if="worldStore.streamingLog"
+              id="log-streaming"
+              class="log-anchor-wrapper"
+            >
+              <TimelineLogItem
+                :log="worldStore.streamingLog"
+                :is-latest="true"
+                :is-streaming="true"
+              />
+            </div>
           </div>
         </div>
 
@@ -406,6 +418,7 @@ const { confirm } = useConfirm()
 const toast = useToast()
 
 // 抽屉与模态状态
+const centerStreamRef = ref<HTMLElement | null>(null)
 const isLeftDrawerOpen = ref(window.innerWidth >= 1280) // 桌面宽屏默认打开左侧
 const isLeftDrawerOpenMobile = ref(false)               // 移动端左侧抽屉开关
 const isMobileRightDrawerOpen = ref(false)              // 移动端右侧看板开关
@@ -467,8 +480,28 @@ const closeAllDrawers = () => {
   isMobileRightDrawerOpen.value = false
 }
 
+const readProgress = ref(0)
+
+const handleStreamScroll = (e: Event) => {
+  const el = e.target as HTMLElement
+  if (!el) return
+  const maxScroll = el.scrollHeight - el.clientHeight
+  if (maxScroll <= 0) {
+    readProgress.value = 100
+  } else {
+    readProgress.value = Math.min(100, Math.max(0, Math.round((el.scrollTop / maxScroll) * 100)))
+  }
+}
+
 const scrollToBottom = () => {
   nextTick(() => {
+    if (centerStreamRef.value) {
+      centerStreamRef.value.scrollTo({
+        top: centerStreamRef.value.scrollHeight,
+        behavior: 'smooth',
+      })
+      readProgress.value = 100
+    }
     window.scrollTo({
       top: document.body.scrollHeight,
       behavior: 'smooth',
@@ -556,17 +589,20 @@ const handleReset = async () => {
 
 <style scoped>
 .world-app {
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background-color: var(--neu-bg);
-  padding-bottom: 4rem;
+  padding-bottom: 0;
 }
 
 /* ========================================= */
 /* 1. 顶部导航条 (Top Navigation Bar)        */
 /* ========================================= */
 .top-nav-bar {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -659,7 +695,7 @@ const handleReset = async () => {
 }
 
 .pulse-anim {
-  color: #8b5cf6;
+  color: var(--neu-accent);
   animation: pulse-glow 2s infinite ease-in-out;
 }
 
@@ -786,21 +822,19 @@ const handleReset = async () => {
 .workspace-container {
   display: flex;
   flex: 1;
+  min-height: 0;
   gap: 1.25rem;
-  padding: 1rem 1.25rem;
-  max-width: 1720px;
+  padding: 0.75rem 1.25rem;
   width: 100%;
-  margin: 0 auto;
   position: relative;
+  overflow: hidden;
 }
 
 /* A. 左侧抽屉 (Left Drawer) */
 .left-drawer-panel {
   width: 310px;
   flex-shrink: 0;
-  height: calc(100vh - 85px);
-  position: sticky;
-  top: 75px;
+  height: 100%;
   overflow-y: auto;
   padding: 1rem;
   display: flex;
@@ -817,16 +851,56 @@ const handleReset = async () => {
 .center-novel-stream {
   flex: 1;
   min-width: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
+  gap: 0.85rem;
+  overflow: hidden;
 }
 
 .stream-top-bar {
+  position: relative;
+  overflow: hidden;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1.25rem;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+/* 小说正文切片独立滚动长卷视口 */
+.stream-scroll-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox: 彻底隐藏外部悬空滚动条 */
+  -ms-overflow-style: none; /* IE / Edge */
+}
+
+.stream-scroll-viewport::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge WebKit: 彻底隐藏外部悬空滚动条 */
+  width: 0;
+  height: 0;
+}
+
+/* 顶部沉浸式极细阅读进度微光指示槽 (替代外部悬空滚动条) */
+.read-progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: rgba(196, 201, 212, 0.25);
+  pointer-events: none;
+}
+
+.read-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--neu-accent) 0%, var(--neu-accent-hover) 100%);
+  box-shadow: 0 0 6px var(--neu-accent);
+  transition: width 0.15s ease-out;
+  border-radius: 0 2px 2px 0;
 }
 
 .stream-title-group {
@@ -855,6 +929,7 @@ const handleReset = async () => {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  padding-bottom: 2rem;
 }
 
 .empty-world-view {
@@ -890,9 +965,7 @@ const handleReset = async () => {
 .right-drawer-panel {
   width: 380px;
   flex-shrink: 0;
-  height: calc(100vh - 85px);
-  position: sticky;
-  top: 75px;
+  height: 100%;
   overflow-y: auto;
   padding: 1rem;
   display: flex;
@@ -1099,15 +1172,32 @@ const handleReset = async () => {
   }
 
   .world-app {
+    height: auto;
+    max-height: none;
+    min-height: 100vh;
+    overflow: visible;
     padding-bottom: 5rem;
+  }
+
+  .workspace-container {
+    height: auto;
+    overflow: visible;
+    padding: 0.75rem 0.5rem;
+  }
+
+  .center-novel-stream {
+    height: auto;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .stream-scroll-viewport {
+    height: auto;
+    overflow: visible;
   }
 
   .nav-section-center {
     display: none; /* 移动端在顶部隐藏步进组，移至底部大拇指栏 */
-  }
-
-  .workspace-container {
-    padding: 0.75rem 0.5rem;
   }
 }
 

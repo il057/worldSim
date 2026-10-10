@@ -5,12 +5,48 @@
   --neu-dark: #c4c9d4;
   --neu-accent: #5e72e4;
   --neu-accent-hover: #4b5ecc;
+  --neu-accent-rgb: 94, 114, 228;
   --neu-danger: #e53e3e;
   --neu-warning: #dd6b20;
   --neu-success: #38a169;
   --neu-text-primary: #2d3748;
   --neu-text-secondary: #718096;
   --neu-text-muted: #a0aec0;
+  --neu-border: rgba(255, 255, 255, 0.45);
+
+  --dialogue-double: #4338ca;
+  --dialogue-corner: #b45309;
+  --dialogue-single: #0f766e;
+
+  /* 兼容别名 */
+  --neu-base: var(--neu-surface);
+  --neu-shadow-dark: var(--neu-dark);
+  --neu-shadow-light: var(--neu-light);
+
+  --shadow-flat: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light);
+  --shadow-flat-sm: 3px 3px 7px var(--neu-dark), -3px -3px 7px var(--neu-light);
+  --shadow-hover: 8px 8px 18px var(--neu-dark), -8px -8px 18px var(--neu-light);
+  --shadow-active: inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light);
+  --shadow-inset: inset 5px 5px 10px var(--neu-dark), inset -5px -5px 10px var(--neu-light);
+  --shadow-inset-sm: inset 2px 2px 5px var(--neu-dark), inset -2px -2px 5px var(--neu-light);
+}
+
+:root[data-theme="dark"],
+html[data-theme="dark"],
+body[data-theme="dark"],
+[data-theme="dark"] {
+  --neu-bg: #1c2027;
+  --neu-surface: #1c2027;
+  --neu-light: #272d37;
+  --neu-dark: #121419;
+  --neu-text-primary: #e2e8f0;
+  --neu-text-secondary: #94a3b8;
+  --neu-text-muted: #64748b;
+  --neu-border: rgba(255, 255, 255, 0.08);
+
+  --dialogue-double: #a5b4fc;
+  --dialogue-corner: #fcd34d;
+  --dialogue-single: #5eead4;
 
   --shadow-flat: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light);
   --shadow-flat-sm: 3px 3px 7px var(--neu-dark), -3px -3px 7px var(--neu-light);
@@ -27,12 +63,15 @@
   -webkit-font-smoothing: antialiased;
 }
 
-body {
+html,
+body,
+#app {
   background-color: var(--neu-bg);
   color: var(--neu-text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 /* 沉浸式文学正文字体 */
@@ -40,7 +79,7 @@ body {
   font-family: 'Noto Serif SC', serif;
   line-height: 1.85;
   letter-spacing: 0.02em;
-  color: #24292e;
+  color: var(--neu-text-primary);
 }
 
 /* 新拟态基础工具类 */
@@ -90,7 +129,12 @@ body {
   background: var(--neu-text-secondary);
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(196, 201, 212, 0.65) transparent;
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+[data-theme="dark"] * {
+  scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
 }

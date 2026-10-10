@@ -392,7 +392,7 @@ const handleDelete = async (id: number) => {
 .modal-card {
   width: 100%;
   max-width: 680px;
-  background: #f0f3f8;
+  background: var(--neu-surface);
   max-height: 88vh;
   overflow: hidden; /* 防止外露直角滚动条破坏模态框圆角 */
   display: flex;
@@ -502,7 +502,7 @@ const handleDelete = async (id: number) => {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  background: #f0f3f8;
+  background: var(--neu-surface);
 }
 
 .form-title {

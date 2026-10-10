@@ -175,7 +175,8 @@ const isSelf = (sender: string) => {
 }
 
 .chat-row.is-self .chat-bubble {
-  background: #edf2ff;
+  background: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.15);
+  border: 1px solid rgba(var(--neu-accent-rgb, 94, 114, 228), 0.3);
   box-shadow: 2px 2px 6px var(--neu-dark, #c4c9d4), -2px -2px 6px var(--neu-light, #ffffff);
 }
 
@@ -200,8 +201,8 @@ const isSelf = (sender: string) => {
 }
 
 .chat-row.is-self .voice-card {
-  background: #edf2ff;
-  border-color: rgba(94, 114, 228, 0.3);
+  background: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.15);
+  border: 1px solid rgba(var(--neu-accent-rgb, 94, 114, 228), 0.3);
 }
 
 .voice-bar {
@@ -290,7 +291,8 @@ const isSelf = (sender: string) => {
 .transfer-card {
   padding: 0.75rem 0.95rem;
   border-radius: 12px;
-  background: #fef9ee;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
   box-shadow: 2px 2px 6px var(--neu-dark, #c4c9d4), -2px -2px 6px var(--neu-light, #ffffff);
   display: flex;
   flex-direction: column;
@@ -329,12 +331,12 @@ const isSelf = (sender: string) => {
 .transfer-amount {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #b45309;
+  color: var(--neu-warning, #f59e0b);
 }
 
 .transfer-note {
   font-size: 0.75rem;
-  color: #78350f;
+  color: var(--neu-text-primary);
   margin-top: 2px;
   line-height: 1.35;
   font-weight: 500;
@@ -342,8 +344,8 @@ const isSelf = (sender: string) => {
 
 .transfer-footer {
   font-size: 0.685rem;
-  color: #a16207;
-  border-top: 1px dashed rgba(217, 119, 6, 0.2);
+  color: var(--neu-text-secondary);
+  border-top: 1px dashed rgba(217, 119, 6, 0.25);
   padding-top: 0.3rem;
 }
 </style>

@@ -363,9 +363,12 @@ def get_system_config(db: Session = Depends(get_db)):
         "llm_frequency_penalty": float(cfg.get("llm_frequency_penalty", "0.0")),
         "llm_presence_penalty": float(cfg.get("llm_presence_penalty", "0.0")),
         "llm_top_p": float(cfg.get("llm_top_p", "1.0")),
+        "enable_realtime_sync": cfg.get("enable_realtime_sync", "false").lower() == "true",
         "realtime_tick_hours": int(cfg.get("realtime_tick_hours", "1")),
         "enable_stream_display": cfg.get("enable_stream_display", "true").lower() == "true",
         "enable_phone_simulation": cfg.get("enable_phone_simulation", "false").lower() == "true",
+        "theme_mode": cfg.get("theme_mode", "light"),
+        "theme_color": cfg.get("theme_color", "#5e72e4"),
     }
 
 
@@ -373,7 +376,8 @@ def get_system_config(db: Session = Depends(get_db)):
 def update_system_config(payload: Dict[str, Any], db: Session = Depends(get_db)):
     """更新系统运行期 LLM 与沙盒配置并持久化至数据库"""
     from app.config import settings
-    from app.services.config_service import save_system_configs
+    from app.services.config_service import save_system_configs, get_all_system_configs
+    from app.services.scheduler import update_scheduler_job
 
     updates = {}
     if "llm_base_url" in payload and payload["llm_base_url"] is not None:
@@ -403,9 +407,12 @@ def update_system_config(payload: Dict[str, Any], db: Session = Depends(get_db))
     if "llm_top_p" in payload and payload["llm_top_p"] is not None:
         updates["llm_top_p"] = str(payload["llm_top_p"])
 
+    if "enable_realtime_sync" in payload and payload["enable_realtime_sync"] is not None:
+        updates["enable_realtime_sync"] = "true" if payload["enable_realtime_sync"] else "false"
+
     if "realtime_tick_hours" in payload and payload["realtime_tick_hours"] is not None:
         updates["realtime_tick_hours"] = str(payload["realtime_tick_hours"])
-        settings.REALTIME_TICK_HOURS = int(payload["realtime_tick_hours"])
+        settings.REALTIME_TICK_HOURS = max(1, int(payload["realtime_tick_hours"]))
 
     if "enable_stream_display" in payload and payload["enable_stream_display"] is not None:
         updates["enable_stream_display"] = "true" if payload["enable_stream_display"] else "false"
@@ -413,7 +420,23 @@ def update_system_config(payload: Dict[str, Any], db: Session = Depends(get_db))
     if "enable_phone_simulation" in payload and payload["enable_phone_simulation"] is not None:
         updates["enable_phone_simulation"] = "true" if payload["enable_phone_simulation"] else "false"
 
+    if "theme_mode" in payload and payload["theme_mode"] is not None:
+        updates["theme_mode"] = str(payload["theme_mode"]).strip()
+
+    if "theme_color" in payload and payload["theme_color"] is not None:
+        updates["theme_color"] = str(payload["theme_color"]).strip()
+
     save_system_configs(updates, db)
+
+    # 动态热更新或启停后台现实同步演化调度任务
+    cfg_all = get_all_system_configs(db)
+    is_sync_enabled = cfg_all.get("enable_realtime_sync", "false").lower() == "true"
+    try:
+        tick_hours = max(1, int(cfg_all.get("realtime_tick_hours", "1")))
+    except ValueError:
+        tick_hours = 1
+    update_scheduler_job(enabled=is_sync_enabled, hours=tick_hours)
+
     return {"message": "系统配置已成功保存至数据库并即时生效"}
 
 

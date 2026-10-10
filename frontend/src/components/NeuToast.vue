@@ -125,22 +125,22 @@ const handleAction = (item: ToastItem) => {
 
 .icon-wrap-error {
   color: var(--neu-danger);
-  background: #fff0f0;
+  background: rgba(229, 62, 62, 0.12);
 }
 
 .icon-wrap-warning {
   color: var(--neu-warning);
-  background: #fffbf0;
+  background: rgba(221, 107, 32, 0.12);
 }
 
 .icon-wrap-success {
   color: var(--neu-success);
-  background: #f0fff4;
+  background: rgba(56, 161, 105, 0.12);
 }
 
 .icon-wrap-info {
   color: var(--neu-accent);
-  background: #f0f4ff;
+  background: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.12);
 }
 
 .toast-body {

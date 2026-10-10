@@ -135,7 +135,7 @@ const handleAIDecide = () => {
 .modal-card {
   width: 100%;
   max-width: 580px;
-  background: #f0f3f8;
+  background: var(--neu-surface);
   max-height: 90vh;
   overflow-y: auto;
   display: flex;
