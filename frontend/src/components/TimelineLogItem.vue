@@ -2,88 +2,90 @@
   <NeuCard class="timeline-log-card" :class="{ 'is-streaming': isStreaming }" variant="flat">
     <!-- 切片头部元信息与内联操作区 -->
     <div class="log-header" ref="headerRef">
-      <!-- 左侧：时空境遇全景 (刻度 + 时间 + 完整地点，自然排布永不暴力截断) -->
-      <div class="header-scene-meta">
-        <span class="tick-badge neu-flat-sm">
-          <Icon icon="material-symbols:timelapse" class="badge-icon" />
-          第 {{ log.tick_index }} 刻
-        </span>
+      <!-- 第一行：刻度与时间 (左侧) + 推演状态与三点操作栏 (右侧) -->
+      <div class="header-top-row">
+        <div class="header-left">
+          <span class="tick-badge neu-flat-sm">
+            <Icon icon="material-symbols:timelapse" class="badge-icon" />
+            第 {{ log.tick_index }} 刻
+          </span>
 
-        <span class="time-text">
-          <Icon icon="material-symbols:schedule" class="meta-icon" />
-          {{ log.virtual_time }}
-        </span>
+          <span class="time-text">
+            <Icon icon="material-symbols:schedule" class="meta-icon" />
+            {{ log.virtual_time }}
+          </span>
+        </div>
 
-        <span class="location-text">
-          <Icon icon="material-symbols:location-on" class="meta-icon location-pin" />
-          <span class="location-name">{{ log.location }}</span>
-        </span>
+        <div class="header-controls">
+          <!-- 非流式推演生成中指示 -->
+          <span v-if="isPendingNonStreaming" class="generating-pill neu-flat-xs">
+            <Icon icon="material-symbols:progress-activity" class="spin-icon-generating" />
+            <span>生成中</span>
+          </span>
+          <!-- 流式推演神性阶段指示 -->
+          <span v-else-if="isStreaming" class="streaming-pill neu-flat-xs">
+            <Icon :icon="stageIcon" class="streaming-icon pulse-anim" />
+            <span>{{ stageBadgeText }}</span>
+          </span>
+
+          <!-- 点击三点按钮直接在 header 内联展开的操作栏 -->
+          <Transition name="action-bar-unroll">
+            <div v-if="showActions" class="inline-action-bar neu-flat-xs">
+              <!-- 1. 编辑按钮 -->
+              <button
+                class="bar-btn"
+                :class="{ 'is-active': isEditing }"
+                :disabled="isOperating || isTicking"
+                @click="toggleEdit"
+                title="编辑本刻正文内容"
+              >
+                <Icon icon="material-symbols:edit-note" class="bar-icon" />
+                <span>{{ isEditing ? '退出' : '编辑' }}</span>
+              </button>
+
+              <!-- 2. 重写按钮 (仅限最新楼层) -->
+              <button
+                v-if="canRewrite"
+                class="bar-btn"
+                :disabled="isOperating || isTicking"
+                @click="handleRewrite"
+                title="撤销当前刻并由 AI 重新推演"
+              >
+                <Icon icon="material-symbols:refresh" class="bar-icon" />
+                <span>重写</span>
+              </button>
+
+              <!-- 3. 删除按钮 (级联删除当前刻及后续所有切片) -->
+              <button
+                class="bar-btn bar-btn-danger"
+                :disabled="isOperating || isTicking"
+                @click="handleDelete"
+                :title="subsequentCount > 1 ? `删除第 ${log.tick_index} 刻及后续 ${subsequentCount - 1} 条切片` : '删除本刻切片'"
+              >
+                <Icon icon="material-symbols:delete-outline" class="bar-icon bar-icon-danger" />
+                <span>删除</span>
+              </button>
+            </div>
+          </Transition>
+
+          <!-- 三点按钮：平滑触发在 header 直接展开/收起操作栏 -->
+          <button
+            v-if="!isPendingNonStreaming && !isStreaming"
+            class="more-trigger-btn neu-flat-xs"
+            :class="{ 'is-active': showActions }"
+            @click="showActions = !showActions"
+            :title="showActions ? '收起操作栏' : '更多操作（编辑/重写/删除）'"
+            aria-label="更多操作"
+          >
+            <Icon icon="material-symbols:more-horiz" class="more-icon" />
+          </button>
+        </div>
       </div>
 
-      <!-- 右侧：推演状态指示 + 三点操作栏 -->
-      <div class="header-controls">
-        <!-- 非流式推演生成中指示 -->
-        <span v-if="isPendingNonStreaming" class="generating-pill neu-flat-xs">
-          <Icon icon="material-symbols:progress-activity" class="spin-icon-generating" />
-          <span>生成中</span>
-        </span>
-        <!-- 流式推演神性阶段指示 -->
-        <span v-else-if="isStreaming" class="streaming-pill neu-flat-xs">
-          <Icon :icon="stageIcon" class="streaming-icon pulse-anim" />
-          <span>{{ stageBadgeText }}</span>
-        </span>
-
-        <!-- 点击三点按钮直接在 header 内联展开的操作栏 -->
-        <Transition name="action-bar-unroll">
-          <div v-if="showActions" class="inline-action-bar neu-flat-xs">
-            <!-- 1. 编辑按钮 -->
-            <button
-              class="bar-btn"
-              :class="{ 'is-active': isEditing }"
-              :disabled="isOperating || isTicking"
-              @click="toggleEdit"
-              title="编辑本刻正文内容"
-            >
-              <Icon icon="material-symbols:edit-note" class="bar-icon" />
-              <span>{{ isEditing ? '退出' : '编辑' }}</span>
-            </button>
-
-            <!-- 2. 重写按钮 (仅限最新楼层) -->
-            <button
-              v-if="canRewrite"
-              class="bar-btn"
-              :disabled="isOperating || isTicking"
-              @click="handleRewrite"
-              title="撤销当前刻并由 AI 重新推演"
-            >
-              <Icon icon="material-symbols:refresh" class="bar-icon" />
-              <span>重写</span>
-            </button>
-
-            <!-- 3. 删除按钮 (级联删除当前刻及后续所有切片) -->
-            <button
-              class="bar-btn bar-btn-danger"
-              :disabled="isOperating || isTicking"
-              @click="handleDelete"
-              :title="subsequentCount > 1 ? `删除第 ${log.tick_index} 刻及后续 ${subsequentCount - 1} 条切片` : '删除本刻切片'"
-            >
-              <Icon icon="material-symbols:delete-outline" class="bar-icon bar-icon-danger" />
-              <span>删除</span>
-            </button>
-          </div>
-        </Transition>
-
-        <!-- 三点按钮：平滑触发在 header 直接展开/收起操作栏 -->
-        <button
-          v-if="!isPendingNonStreaming && !isStreaming"
-          class="more-trigger-btn neu-flat-xs"
-          :class="{ 'is-active': showActions }"
-          @click="showActions = !showActions"
-          :title="showActions ? '收起操作栏' : '更多操作（编辑/重写/删除）'"
-          aria-label="更多操作"
-        >
-          <Icon icon="material-symbols:more-horiz" class="more-icon" />
-        </button>
+      <!-- 第二行：地点统一靠左独立展示，规避高度参差与文本截断 -->
+      <div v-if="log.location" class="header-location-row">
+        <Icon icon="material-symbols:location-on" class="location-pin" />
+        <span class="location-name">{{ log.location }}</span>
       </div>
     </div>
 
@@ -698,23 +700,27 @@ const hasInventoryDelta = computed(() => {
 
 .log-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.45rem;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid rgba(196, 201, 212, 0.4);
   position: relative;
-  min-height: 38px;
 }
 
-.header-scene-meta {
+.header-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 28px;
+}
+
+.header-left {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.85rem;
-  min-width: 0;
-  flex: 1;
+  gap: 0.65rem;
+  flex-shrink: 0;
 }
 
 .header-controls {
@@ -723,6 +729,28 @@ const hasInventoryDelta = computed(() => {
   gap: 0.5rem;
   position: relative;
   flex-shrink: 0;
+}
+
+.header-location-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.825rem;
+  color: var(--neu-text-secondary);
+  line-height: 1.45;
+  word-break: break-word;
+  padding-left: 0.15rem;
+}
+
+.location-pin {
+  color: var(--neu-accent);
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.location-name {
+  color: var(--neu-text-secondary);
+  font-weight: 500;
 }
 
 .tick-badge {
@@ -752,27 +780,6 @@ const hasInventoryDelta = computed(() => {
   white-space: nowrap;
   flex-shrink: 0;
   line-height: 1;
-}
-
-.location-text {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.825rem;
-  color: var(--neu-text-secondary);
-  line-height: 1.4;
-  word-break: break-word;
-}
-
-.location-pin {
-  color: var(--neu-accent);
-  font-size: 0.95rem;
-  flex-shrink: 0;
-}
-
-.location-name {
-  color: var(--neu-text-secondary);
-  font-weight: 500;
 }
 
 .meta-icon {
@@ -981,21 +988,22 @@ const hasInventoryDelta = computed(() => {
 /* 响应式移动端换行布局 */
 @media (max-width: 680px) {
   .log-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.65rem;
+    gap: 0.4rem;
   }
 
-  .header-scene-meta {
-    width: 100%;
-    gap: 0.4rem 0.65rem;
+  .header-top-row {
+    gap: 0.5rem;
   }
 
-  .header-controls {
-    width: 100%;
-    justify-content: flex-end;
+  .header-left {
+    gap: 0.45rem;
+  }
+
+  .header-location-row {
+    font-size: 0.8rem;
   }
 }
+
 
 .meta-icon {
   font-size: 0.95rem;

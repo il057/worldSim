@@ -43,6 +43,7 @@ export const useWorldStore = defineStore('world', {
     isStreaming: false,
     streamingStage: '' as 'pass1' | 'pass2' | 'incident_conceive' | string,
     streamingLog: null as StoryLogView | null,
+    lastAffinityDeltas: {} as Record<string, number>,
   }),
 
   getters: {
@@ -96,6 +97,7 @@ export const useWorldStore = defineStore('world', {
         this.currentDetail = detailRes.data
         this.currentState = detailRes.data.state || null
         this.timeline = timeRes.data.items
+        this.lastAffinityDeltas = {}
       } catch (err: any) {
         this.error = err.message || '加载角色详情失败'
       } finally {
@@ -187,6 +189,13 @@ export const useWorldStore = defineStore('world', {
 
       try {
         const config = this.getActivePromptConfig()
+        // 记录推演前各 NPC 的好感度快照，以便精准计算本次好感变动值
+        const preTickAffinityMap = new Map<string, number>()
+        if (this.currentDetail?.relationships) {
+          for (const rel of this.currentDetail.relationships) {
+            preTickAffinityMap.set(rel.npc_name, rel.affinity)
+          }
+        }
         let resData: { story_log: StoryLogView; current_state: CharacterStateView }
 
         if (this.enableStreamDisplay) {
@@ -278,8 +287,22 @@ export const useWorldStore = defineStore('world', {
         }
         this.timeline.push(resData.story_log)
 
+        // 计算本次 NPC 好感度变动 delta
+        const deltas: Record<string, number> = {}
+        const updatedList = resData.story_log?.delta_snapshot?.relationship_delta?.updated_npcs || []
+        for (const u of updatedList) {
+          const oldVal = preTickAffinityMap.get(u.npc_name)
+          if (oldVal !== undefined) {
+            deltas[u.npc_name] = u.affinity - oldVal
+          }
+        }
+        this.lastAffinityDeltas = deltas
+
         // 若产生了新结识的 NPC 或好感变动，刷新社交关系网
-        if (resData.story_log?.delta_snapshot?.relationship_delta?.new_npcs?.length) {
+        if (
+          resData.story_log?.delta_snapshot?.relationship_delta?.new_npcs?.length ||
+          resData.story_log?.delta_snapshot?.relationship_delta?.updated_npcs?.length
+        ) {
           await this.refreshRelationships()
         }
       } catch (err: any) {
