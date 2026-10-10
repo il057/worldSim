@@ -150,6 +150,17 @@ export interface CardParseResponse {
   raw_preview?: any
 }
 
+export interface QuickCharacterPayload {
+  name?: string
+  gender?: string
+  birthday?: string
+  role?: string
+  appearance?: string
+  archetype?: string
+  world_guidance?: string
+  initial_situation?: string
+}
+
 export interface StepTickResponse {
   character_id: string
   story_log: StoryLogView
@@ -276,6 +287,10 @@ export const apiClient = {
   getCharacterState: (id: string) => api.get<CharacterStateView>(`/characters/${id}/state`),
   getTimeline: (id: string, page = 1, pageSize = 30) =>
     api.get<TimelinePageResponse>(`/characters/${id}/timeline?page=${page}&page_size=${pageSize}`),
+  updateTimelineLog: (characterId: string, logId: number, payload: { narrative_prose: string; plot_beat?: string }) =>
+    api.put<StoryLogView>(`/characters/${characterId}/timeline/${logId}`, payload),
+  deleteTimelineLog: (characterId: string, logId: number) =>
+    api.delete<{ message: string; deleted_count: number; rollback_to_tick: number }>(`/characters/${characterId}/timeline/${logId}`),
   resetCharacter: (id: string) => api.post(`/characters/${id}/reset`),
   deleteCharacter: (id: string) => api.delete<{ message: string }>(`/characters/${id}`),
 
@@ -347,12 +362,12 @@ export const apiClient = {
     initial_goals?: string[]
   }) => api.post<{ character_id: string; name: string }>('/cards/import', payload),
 
-  generateQuickCharacter: (payload: {
-    name: string
-    role: string
-    archetype: string
-    initial_situation: string
-  }) => api.post<{ character_id: string; name: string }>('/characters/generate-quick', payload),
+
+  generateQuickBlueprint: (payload: QuickCharacterPayload) =>
+    api.post<CardParseResponse>('/characters/generate-blueprint', payload),
+
+  generateQuickCharacter: (payload: QuickCharacterPayload) =>
+    api.post<{ character_id: string; name: string; blueprint?: CardParseResponse }>('/characters/generate-quick', payload),
 
   // 世界书管理
   getLores: (characterId: string) => api.get<any[]>(`/characters/${characterId}/lores`),

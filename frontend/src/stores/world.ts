@@ -313,6 +313,52 @@ export const useWorldStore = defineStore('world', {
       return this.executeSimTick('triggerIncident', { incidentDescription })
     },
 
+    async deleteTimelineLog(log: StoryLogView) {
+      if (!this.currentCharacterId || this.isTicking) return
+      this.isLoading = true
+      this.error = null
+      try {
+        await apiClient.deleteTimelineLog(this.currentCharacterId, log.id)
+        // 级联移除 tick_index >= log.tick_index 的所有切片
+        this.timeline = this.timeline.filter((item) => item.tick_index < log.tick_index)
+        // 刷新即时状态与人际关系网看板
+        await Promise.all([this.refreshState(), this.refreshRelationships()])
+      } catch (err: any) {
+        this.error = err.response?.data?.detail || err.message || '删除切片失败'
+        throw err
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    async updateTimelineLog(logId: number, narrativeProse: string, plotBeat?: string) {
+      if (!this.currentCharacterId) return
+      try {
+        const res = await apiClient.updateTimelineLog(this.currentCharacterId, logId, {
+          narrative_prose: narrativeProse,
+          plot_beat: plotBeat,
+        })
+        const target = this.timeline.find((item) => item.id === logId)
+        if (target) {
+          target.narrative_prose = res.data.narrative_prose
+          if (res.data.plot_beat) {
+            target.plot_beat = res.data.plot_beat
+          }
+        }
+      } catch (err: any) {
+        this.error = err.response?.data?.detail || err.message || '修改切片失败'
+        throw err
+      }
+    },
+
+    async rewriteLatestLog(log: StoryLogView) {
+      if (!this.currentCharacterId || this.isTicking) return
+      // 先删除最新切片并回滚状态
+      await this.deleteTimelineLog(log)
+      // 接着自动触发智能续写生成新的切片
+      await this.runContinue()
+    },
+
     async resetWorld() {
       if (!this.currentCharacterId || this.isTicking) return
       this.isLoading = true

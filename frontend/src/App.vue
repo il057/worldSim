@@ -363,13 +363,15 @@
     <QuickCharacterModal
       :is-open="isQuickModalOpen"
       @close="isQuickModalOpen = false"
-      @created="handleCharacterCreated"
+      @blueprint="handleQuickBlueprint"
     />
 
     <CardImportModal
       :is-open="isImportModalOpen"
-      @close="isImportModalOpen = false"
+      :initial-parse-data="quickBlueprintData"
+      @close="handleImportModalClose"
       @imported="handleCharacterCreated"
+      @back-to-quick="handleBackToQuick"
     />
 
     <!-- 新拟态全局 Toast 消息通知 -->
@@ -397,6 +399,7 @@ import NeuConfirmModal from './components/NeuConfirmModal.vue'
 import { useWorldStore } from './stores/world'
 import { useConfirm } from './composables/useConfirm'
 import { useToast } from './composables/useToast'
+import type { CardParseResponse } from './api/client'
 
 const worldStore = useWorldStore()
 const { confirm } = useConfirm()
@@ -414,6 +417,24 @@ const isConfigModalOpen = ref(false)
 const isQuickModalOpen = ref(false)
 const isImportModalOpen = ref(false)
 const isIncidentModalOpen = ref(false)
+const quickBlueprintData = ref<CardParseResponse | null>(null)
+
+const handleQuickBlueprint = (blueprint: CardParseResponse) => {
+  isQuickModalOpen.value = false
+  quickBlueprintData.value = blueprint
+  isImportModalOpen.value = true
+}
+
+const handleImportModalClose = () => {
+  isImportModalOpen.value = false
+  quickBlueprintData.value = null
+}
+
+const handleBackToQuick = () => {
+  isImportModalOpen.value = false
+  quickBlueprintData.value = null
+  isQuickModalOpen.value = true
+}
 
 const handleIncidentConfirm = (incidentDescription?: string) => {
   isIncidentModalOpen.value = false
@@ -495,6 +516,9 @@ const handleSelectCharacter = async (charId: string) => {
 }
 
 const handleCharacterCreated = async (characterId: string) => {
+  isQuickModalOpen.value = false
+  isImportModalOpen.value = false
+  quickBlueprintData.value = null
   await worldStore.initialize()
   await worldStore.selectCharacter(characterId)
 }

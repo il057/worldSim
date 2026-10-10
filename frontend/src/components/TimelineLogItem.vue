@@ -1,18 +1,27 @@
 <template>
   <NeuCard class="timeline-log-card" :class="{ 'is-streaming': isStreaming }" variant="flat">
-    <!-- 切片头部元信息 -->
-    <div class="log-header">
-      <div class="header-left">
+    <!-- 切片头部元信息与内联操作区 -->
+    <div class="log-header" ref="headerRef">
+      <!-- 左侧：时空境遇全景 (刻度 + 时间 + 完整地点，自然排布永不暴力截断) -->
+      <div class="header-scene-meta">
         <span class="tick-badge neu-flat-sm">
           <Icon icon="material-symbols:timelapse" class="badge-icon" />
           第 {{ log.tick_index }} 刻
         </span>
+
         <span class="time-text">
           <Icon icon="material-symbols:schedule" class="meta-icon" />
           {{ log.virtual_time }}
         </span>
+
+        <span class="location-text">
+          <Icon icon="material-symbols:location-on" class="meta-icon location-pin" />
+          <span class="location-name">{{ log.location }}</span>
+        </span>
       </div>
-      <div class="header-right">
+
+      <!-- 右侧：推演状态指示 + 三点操作栏 -->
+      <div class="header-controls">
         <!-- 非流式推演生成中指示 -->
         <span v-if="isPendingNonStreaming" class="generating-pill neu-flat-xs">
           <Icon icon="material-symbols:progress-activity" class="spin-icon-generating" />
@@ -23,15 +32,86 @@
           <Icon :icon="stageIcon" class="streaming-icon pulse-anim" />
           <span>{{ stageBadgeText }}</span>
         </span>
-        <span class="location-text">
-          <Icon icon="material-symbols:location-on" class="meta-icon" />
-          {{ log.location }}
-        </span>
+
+        <!-- 点击三点按钮直接在 header 内联展开的操作栏 -->
+        <Transition name="action-bar-unroll">
+          <div v-if="showActions" class="inline-action-bar neu-flat-xs">
+            <!-- 1. 编辑按钮 -->
+            <button
+              class="bar-btn"
+              :class="{ 'is-active': isEditing }"
+              :disabled="isOperating || isTicking"
+              @click="toggleEdit"
+              title="编辑本刻正文内容"
+            >
+              <Icon icon="material-symbols:edit-note" class="bar-icon" />
+              <span>{{ isEditing ? '退出' : '编辑' }}</span>
+            </button>
+
+            <!-- 2. 重写按钮 (仅限最新楼层) -->
+            <button
+              v-if="canRewrite"
+              class="bar-btn"
+              :disabled="isOperating || isTicking"
+              @click="handleRewrite"
+              title="撤销当前刻并由 AI 重新推演"
+            >
+              <Icon icon="material-symbols:refresh" class="bar-icon" />
+              <span>重写</span>
+            </button>
+
+            <!-- 3. 删除按钮 (级联删除当前刻及后续所有切片) -->
+            <button
+              class="bar-btn bar-btn-danger"
+              :disabled="isOperating || isTicking"
+              @click="handleDelete"
+              :title="subsequentCount > 1 ? `删除第 ${log.tick_index} 刻及后续 ${subsequentCount - 1} 条切片` : '删除本刻切片'"
+            >
+              <Icon icon="material-symbols:delete-outline" class="bar-icon bar-icon-danger" />
+              <span>删除</span>
+            </button>
+          </div>
+        </Transition>
+
+        <!-- 三点按钮：平滑触发在 header 直接展开/收起操作栏 -->
+        <button
+          v-if="!isPendingNonStreaming && !isStreaming"
+          class="more-trigger-btn neu-flat-xs"
+          :class="{ 'is-active': showActions }"
+          @click="showActions = !showActions"
+          :title="showActions ? '收起操作栏' : '更多操作（编辑/重写/删除）'"
+          aria-label="更多操作"
+        >
+          <Icon icon="material-symbols:more-horiz" class="more-icon" />
+        </button>
       </div>
     </div>
 
-    <!-- 纯文学正文流 自然段落与拟真手机组件混排 -->
-    <div class="log-prose prose-literary" :class="{ 'is-streaming-text': isStreaming }">
+    <!-- 正文区域：编辑态直接就地替换为文本框，不重复显示两次正文 -->
+    <div v-if="isEditing" class="prose-edit-container">
+      <textarea
+        v-model="editDraft"
+        class="prose-edit-textarea neu-inset-sm"
+        rows="9"
+        placeholder="在此直接修改文学正文内容..."
+      ></textarea>
+      <div class="edit-toolbar">
+        <span class="edit-counter">{{ editDraft.length }} 字</span>
+        <div class="edit-btn-group">
+          <button class="edit-action-btn cancel-btn neu-flat-xs" :disabled="isSaving" @click="cancelEdit">
+            <Icon icon="material-symbols:close" class="btn-icon" />
+            <span>取消</span>
+          </button>
+          <button class="edit-action-btn save-btn neu-flat-xs" :disabled="isSaving" @click="saveEdit">
+            <Icon icon="material-symbols:check" class="btn-icon" />
+            <span>{{ isSaving ? '保存中...' : '保存修改' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 纯文学正文流 自然段落与拟真手机组件混排 (非编辑态) -->
+    <div v-else class="log-prose prose-literary" :class="{ 'is-streaming-text': isStreaming }">
       <!-- 1. 非流式状态下的纯净等待指示 -->
       <div v-if="isPendingNonStreaming" class="generating-placeholder neu-inset-sm">
         <Icon icon="material-symbols:progress-activity" class="spin-icon-generating" />
@@ -180,7 +260,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import NeuCard from './NeuCard.vue'
 import PhoneMomentsCard from './phone/PhoneMomentsCard.vue'
@@ -188,7 +268,9 @@ import PhoneForumCard from './phone/PhoneForumCard.vue'
 import PhoneChatGroup from './phone/PhoneChatGroup.vue'
 import { parseProseIntoBlocks } from '../utils/phoneParser'
 import { useWorldStore } from '../stores/world'
-import type { StoryLogView } from '../api/client'
+import { useConfirm } from '../composables/useConfirm'
+import { useToast } from '../composables/useToast'
+import { apiClient, type StoryLogView } from '../api/client'
 
 const props = defineProps<{
   log: StoryLogView
@@ -197,12 +279,64 @@ const props = defineProps<{
 }>()
 
 const worldStore = useWorldStore()
+const { confirm } = useConfirm()
+const toast = useToast()
+
 const characterName = computed(() => worldStore.currentDetail?.name || '')
 
+const headerRef = ref<HTMLElement | null>(null)
+const showActions = ref(false)
 const isExpanded = ref(false)
+const isEditing = ref(false)
+const editDraft = ref(props.log.narrative_prose || '')
+const isSaving = ref(false)
+const isOperating = ref(false)
+
+const isTicking = computed(() => worldStore.isTicking)
+
+// 监听正文变化，未处于编辑态时保持同步
+watch(
+  () => props.log.narrative_prose,
+  (newVal) => {
+    if (!isEditing.value) {
+      editDraft.value = newVal || ''
+    }
+  }
+)
+
+// 点击页面外部区域时自动收起内联操作栏
+const handleDocClick = (e: MouseEvent) => {
+  if (showActions.value && headerRef.value && !headerRef.value.contains(e.target as Node)) {
+    showActions.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', handleDocClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', handleDocClick)
+})
 
 const isPendingNonStreaming = computed(() => {
   return props.log.id === -999 && !props.isStreaming
+})
+
+// 重写仅在最新楼层展示且推演闲置状态下可用
+const canRewrite = computed(() => {
+  return (
+    Boolean(props.isLatest) &&
+    !props.isStreaming &&
+    !isPendingNonStreaming.value &&
+    !worldStore.isTicking &&
+    Boolean(props.log.id && props.log.id !== -999)
+  )
+})
+
+// 计算本刻及后续级联删除的切片总数
+const subsequentCount = computed(() => {
+  return worldStore.timeline.filter((item) => item.tick_index >= props.log.tick_index).length
 })
 
 const stageBadgeText = computed(() => {
@@ -230,6 +364,137 @@ const contentBlocks = computed(() => {
   if (!props.log.narrative_prose) return []
   return parseProseIntoBlocks(props.log.narrative_prose)
 })
+
+/**
+ * 切换编辑状态
+ */
+const toggleEdit = () => {
+  if (isEditing.value) {
+    cancelEdit()
+  } else {
+    editDraft.value = props.log.narrative_prose || ''
+    isEditing.value = true
+    showActions.value = false
+  }
+}
+
+const cancelEdit = () => {
+  isEditing.value = false
+  editDraft.value = props.log.narrative_prose || ''
+}
+
+const saveEdit = async () => {
+  if (isSaving.value || !props.log.id || props.log.id === -999) return
+  isSaving.value = true
+  try {
+    if (typeof (worldStore as any).updateTimelineLog === 'function') {
+      await (worldStore as any).updateTimelineLog(props.log.id, editDraft.value)
+    } else {
+      await apiClient.updateTimelineLog(props.log.character_id, props.log.id, {
+        narrative_prose: editDraft.value,
+      })
+      const target = worldStore.timeline.find((i) => i.id === props.log.id)
+      if (target) target.narrative_prose = editDraft.value
+    }
+    toast.showSuccess(`第 ${props.log.tick_index} 刻正文修改已保存`)
+    isEditing.value = false
+  } catch (err: any) {
+    toast.show({
+      type: 'error',
+      title: '保存修改失败',
+      description: err.message || '网络或接口服务异常',
+    })
+  } finally {
+    isSaving.value = false
+  }
+}
+
+/**
+ * 重写最新楼层
+ */
+const handleRewrite = async () => {
+  showActions.value = false
+  const ok = await confirm({
+    title: '重写故事切片',
+    message: `确定要重写第 ${props.log.tick_index} 刻吗？\n当前最新的正文与状态将撤销，并由 AI 重新推演生成。`,
+    variant: 'warning',
+    confirmText: '重新推演',
+    cancelText: '取消',
+    icon: 'material-symbols:refresh',
+  })
+
+  if (!ok) return
+
+  isOperating.value = true
+  try {
+    if (typeof (worldStore as any).rewriteLatestLog === 'function') {
+      await (worldStore as any).rewriteLatestLog(props.log)
+    } else {
+      await apiClient.deleteTimelineLog(props.log.character_id, props.log.id)
+      worldStore.timeline = worldStore.timeline.filter((i) => i.tick_index < props.log.tick_index)
+      await Promise.all([worldStore.refreshState(), worldStore.refreshRelationships()])
+      await worldStore.runContinue()
+    }
+    toast.showSuccess(`已启动第 ${props.log.tick_index} 刻重新推演`)
+  } catch (err: any) {
+    toast.show({
+      type: 'error',
+      title: '重写切片失败',
+      description: err.message || '操作未完成，请重试',
+    })
+  } finally {
+    isOperating.value = false
+  }
+}
+
+/**
+ * 删除当前切片并自动级联删除后续所有切片，回滚状态
+ */
+const handleDelete = async () => {
+  showActions.value = false
+  const count = subsequentCount.value
+  let message = ''
+  if (count > 1) {
+    message = `删除第 ${props.log.tick_index} 刻将同时级联删除此后的所有故事切片（共 ${count} 刻），并自动回滚世界状态至该时刻之前。\n\n此操作不可逆，是否确认删除？`
+  } else {
+    message = `是否确认删除第 ${props.log.tick_index} 刻故事切片并回滚世界状态至前一刻？\n\n此操作不可逆，是否确认？`
+  }
+
+  const ok = await confirm({
+    title: '删除故事切片',
+    message,
+    variant: 'danger',
+    confirmText: count > 1 ? `删除 ${count} 刻并回滚` : '确认删除',
+    cancelText: '取消',
+    icon: 'material-symbols:delete-forever',
+  })
+
+  if (!ok) return
+
+  isOperating.value = true
+  try {
+    if (typeof (worldStore as any).deleteTimelineLog === 'function') {
+      await (worldStore as any).deleteTimelineLog(props.log)
+    } else {
+      await apiClient.deleteTimelineLog(props.log.character_id, props.log.id)
+      worldStore.timeline = worldStore.timeline.filter((item) => item.tick_index < props.log.tick_index)
+      await Promise.all([worldStore.refreshState(), worldStore.refreshRelationships()])
+    }
+    toast.showSuccess(
+      count > 1
+        ? `第 ${props.log.tick_index} 刻及后续 ${count - 1} 刻切片已删除，世界已回滚`
+        : `第 ${props.log.tick_index} 刻切片已删除，世界已回滚`
+    )
+  } catch (err: any) {
+    toast.show({
+      type: 'error',
+      title: '删除切片失败',
+      description: err.message || '操作未完成，请重试',
+    })
+  } finally {
+    isOperating.value = false
+  }
+}
 
 /**
  * 将文学段落中的各类对白/心绪引用赋予不同的雅致色彩
@@ -435,15 +700,29 @@ const hasInventoryDelta = computed(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid rgba(196, 201, 212, 0.4);
+  position: relative;
+  min-height: 38px;
 }
 
-.header-left, .header-right {
+.header-scene-meta {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  flex-shrink: 0;
 }
 
 .tick-badge {
@@ -454,18 +733,268 @@ const hasInventoryDelta = computed(() => {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--neu-accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .badge-icon {
   font-size: 1rem;
+  flex-shrink: 0;
 }
 
-.time-text, .location-text {
+.time-text {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
   font-size: 0.825rem;
   color: var(--neu-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.location-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.825rem;
+  color: var(--neu-text-secondary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.location-pin {
+  color: var(--neu-accent);
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.location-name {
+  color: var(--neu-text-secondary);
+  font-weight: 500;
+}
+
+.meta-icon {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+/* 三点更多操作触发按钮 */
+.more-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: var(--neu-base);
+  color: var(--neu-text-secondary);
+  cursor: pointer;
+  box-shadow: 1px 1px 3px var(--neu-shadow-dark), -1px -1px 3px var(--neu-shadow-light);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.more-trigger-btn:hover {
+  color: var(--neu-accent);
+  transform: translateY(-1px);
+}
+
+.more-trigger-btn:active,
+.more-trigger-btn.is-active {
+  box-shadow: inset 1px 1px 2px var(--neu-shadow-dark), inset -1px -1px 2px var(--neu-shadow-light);
+  color: var(--neu-accent);
+}
+
+.more-icon {
+  font-size: 1.15rem;
+}
+
+/* 内联操作栏 (直接在 header 右侧平滑展开) */
+.inline-action-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 2px 5px;
+  border-radius: 9999px;
+  background: var(--neu-base);
+  box-shadow: inset 1px 1px 3px var(--neu-shadow-dark), inset -1px -1px 3px var(--neu-shadow-light);
+  flex-shrink: 0;
+  white-space: nowrap;
+  height: 28px;
+  box-sizing: border-box;
+}
+
+.bar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.5rem;
+  border: none;
+  background: transparent;
+  border-radius: 9999px;
+  font-size: 0.725rem;
+  font-weight: 600;
+  color: var(--neu-text-secondary);
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.bar-btn:hover:not(:disabled) {
+  color: var(--neu-accent);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.bar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.bar-btn.is-active {
+  color: var(--neu-accent);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 1px 1px 2px var(--neu-shadow-dark);
+}
+
+.bar-btn-danger:hover:not(:disabled) {
+  color: var(--neu-danger) !important;
+  background: #fee2e2 !important;
+}
+
+.bar-icon {
+  font-size: 0.95rem;
+}
+
+.bar-icon-danger {
+  color: inherit;
+}
+
+/* 动效：展开内联操作栏 (纯平滑淡入微移，杜绝抖动与高度变化) */
+.action-bar-unroll-enter-active,
+.action-bar-unroll-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: right center;
+}
+
+.action-bar-unroll-enter-from,
+.action-bar-unroll-leave-to {
+  opacity: 0;
+  transform: scale(0.92) translateX(6px);
+}
+
+.action-bar-unroll-enter-to,
+.action-bar-unroll-leave-from {
+  opacity: 1;
+  transform: scale(1) translateX(0);
+}
+
+/* 正文编辑文本框容器 */
+.prose-edit-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.prose-edit-textarea {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: none;
+  outline: none;
+  border-radius: 10px;
+  background: #f8fafc;
+  box-shadow: inset 2px 2px 5px rgba(166, 175, 195, 0.5), inset -2px -2px 5px rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+  line-height: 1.85;
+  color: #1f2937;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 160px;
+  box-sizing: border-box;
+}
+
+.prose-edit-textarea:focus {
+  box-shadow: inset 2px 2px 5px rgba(166, 175, 195, 0.7), inset -2px -2px 5px rgba(255, 255, 255, 0.9),
+    0 0 0 2px rgba(99, 102, 241, 0.25);
+}
+
+.edit-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 0.25rem;
+}
+
+.edit-counter {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--neu-text-muted);
+}
+
+.edit-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.edit-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.85rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.edit-action-btn.cancel-btn {
+  color: var(--neu-text-secondary);
+  background: var(--neu-base);
+  box-shadow: 1px 1px 3px var(--neu-shadow-dark), -1px -1px 3px var(--neu-shadow-light);
+}
+
+.edit-action-btn.cancel-btn:hover:not(:disabled) {
+  color: var(--neu-text-primary);
+}
+
+.edit-action-btn.save-btn {
+  color: #fff;
+  background: var(--neu-accent);
+  box-shadow: 2px 2px 6px var(--neu-shadow-dark), -1px -1px 3px var(--neu-shadow-light);
+}
+
+.edit-action-btn.save-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.edit-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 响应式移动端换行布局 */
+@media (max-width: 680px) {
+  .log-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .header-scene-meta {
+    width: 100%;
+    gap: 0.4rem 0.65rem;
+  }
+
+  .header-controls {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 .meta-icon {

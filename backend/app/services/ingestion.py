@@ -287,14 +287,14 @@ class IngestionService:
             "   - 【所有登场 NPC 平等对待原则】：\n"
             "     无论某 NPC 在原卡中是并列主要角色还是世界书配角，在最终呈现时地位完全平等；\n"
             "     在 entities 的 relationships 关系网中，聚焦输出当前主视角对该 NPC 的【专属社会关系】、【初始好感度】与【专属主观态度与互动纠葛】（精炼深刻，50~100字，写明具体相处态度与过往羁绊，严禁单句‘嫌弃对方’敷衍；客观身份生平画像将由系统统一从实体人设/世界书中自动对齐融合，切勿在此重复冗长抄写其生平，严禁写‘本卡主要角色’等元标签）；\n"
-            "   - 【多实体专属关系网绝对独立】：每一个 entity 必须包含专属的 relationships 关系网数组！实体 A 对 NPC X 的好感度（affinity 0-100）和态度评价，必须与实体 B 对 NPC X 完全不同，立足各自立场深入撰写！\n\n"
+            "   - 【多实体专属关系网绝对独立与好感度支持负数】：每一个 entity 必须包含专属的 relationships 关系网数组！实体 A 对 NPC X 的好感度（affinity 支持 -100 到 100，允许且支持负数表示对立、戒备、厌恶或竞争纠葛）和态度评价，必须与实体 B 对 NPC X 完全不同，立足各自立场深入撰写！\n\n"
             "4. 【消除字段冗余与纯粹深入性格特质】（极度重要）：\n"
             "   - 每一个 entity 必须提炼输出独立的显式基础生理字段：\n"
             "     - gender: 生理/社会性别 (男 | 女 | 其他/非二元 | 无性别/未知)\n"
             "     - birthday: 诞生时间/生日（必须包含确切年份与月日，如 '2007年3月15日' 或 '天禧二年五月初三'）\n"
             "     - appearance: 外貌体征与服饰细节 (身高、体型、发型发色、瞳孔眼眸、显著面部特征与标志性常驻着装)\n"
             "   - 【严禁在 persona_summary 中重复生理标签】：gender、birthday、appearance 已经具备专属独立字段，persona_summary 严禁重复写性别、生日、外貌等已结构化的基础信息，杜绝浪费上下文 Token！\n"
-            "   - persona_summary 必须将全量笔墨深度倾注于：角色深刻的核心性格底色、为人处世哲学、行事准则、心理防御机制、行为癖好、人际交往态度与深层人物背景脉络（不设字数上限，严禁人为机械截断）。\n\n"
+            "   - 【人设立体自然，切勿强加病态阴暗设定】：persona_summary 必须将全量笔墨倾注于：角色核心性格底色、为人处世哲学、行事准则、个性特征与行为习惯、人际交往态度与深层人物背景脉络（不设字数上限，严禁人为机械截断；必须忠于原卡画风与基调，切勿无端脑补病态阴暗心理或过度防御机制）。\n\n"
             "5. 【世界书配角全量提炼与高质量重写世界法则（必须保留写作风格指导）】（极度重要）：\n"
             "   - 【全量提取世界书具名配角/NPC（不可遗漏）】：凡是描述具体人物、次要角色、配角、组织首脑/干部、联络人、同伴、对手或导师等具名角色的条目，必须全部提取并输出到顶层的 world_npcs 列表中！每一个世界书具名角色都必须被提取为 NPC！\n"
             "   - 【NPC 人设画像完整刻画】：提取的 world_npcs 的 summary 中，深入完整阐述其身份背景、社会定位与性格特征（80~150字，严禁人为字数截断，严禁出现“本卡主要角色”等元标签）！已被提炼为 NPC 的世界书人物条目，绝不再放入 kept_lores 中；\n"
@@ -314,7 +314,7 @@ class IngestionService:
             "    {\n"
             '      "npc_name": "从世界书条目中提取的具名NPC姓名",\n'
             '      "relation_type": "该NPC在世界观中的公共社会身份或职业",\n'
-            '      "affinity": 50,\n'
+            '      "affinity": 50,  // 该NPC对外部整体的基准态度 (-100 到 100)\n'
             '      "summary": "该NPC在世界中的客观身份背景、核心能力特征与性格特质（立体独立画像，80~150字，严禁写‘本卡主要角色’等废话）"\n'
             "    }\n"
             "  ],\n"
@@ -326,7 +326,7 @@ class IngestionService:
             '      "birthday": "诞生时间/生日 (例如: 2007年3月15日 或 天禧二年五月初三)",\n'
             '      "appearance": "外貌体征与服饰细节 (身高、体型、发色瞳色、标志性装束等)",\n'
             '      "persona_summary": "深入且完整地刻画该实体的性格特质、处事哲学、行事准则与深层背景（不设字数上限，严禁人为截断；绝不重复写性别/生日/外貌；已彻底解耦 {{user}}，转为对替代 NPC 的羁绊）",\n'
-            '      "inner_drive": "核心内在心理执念与不可磨灭的终极追求（深入刻画，不限字数）",\n'
+            '      "inner_drive": "核心内在驱动力或长期追求（深入刻画，不限字数。必须紧扣原卡片的基调与人物抱负，拒绝套路化地归结为童年创伤、被遗弃恐惧或精神病理性动机；它可以是理想抱负、责任信念、对某人的守护与承诺、探索未知的热忱、或生活志向）",\n'
             '      "chronotype": "生理节律倾向 (夜行型 | 早起型 | 昼夜无律型 | 无休眠体质)",\n'
             '      "typical_rest_window": "常规休眠倾向窗口 (例如 05:00 - 13:00)",\n'
             '      "environment_tolerance": "休眠环境耐受度与要求",\n'
@@ -342,7 +342,7 @@ class IngestionService:
             "        {\n"
             '          "npc_name": "与当前实体有直接联系的NPC姓名（包含其他主要角色、核心世界书NPC、替代user的NPC）",\n'
             '          "relation_type": "当前实体视角下的专属社会关系类型",\n'
-            '          "affinity": 50,  // 当前实体对该 NPC 的初始好感度 (0-100)\n'
+            '          "affinity": 50,  // 当前实体对该 NPC 的初始好感度 (-100 到 100，支持且允许负数表示对立/戒备/厌恶)\n'
             '          "summary": "当前主视角实体对该 NPC 的专属态度、看法、好感成因与互动纠葛（精炼深刻，50~100字，写明具体相处态度与过往羁绊，严禁单句‘嫌弃对方’敷衍；客观身份生平画像将由系统统一融合，无需在此重复抄写生平，严禁‘本卡主角’等元描述）"\n'
             "        }\n"
             "      ]\n"
@@ -471,7 +471,7 @@ class IngestionService:
             c_persona = re.sub(r"^【基础档案】[^\n]*\n*", "", c_persona).strip()
             c_persona = re.sub(r"^【性格与处世】\s*", "", c_persona).strip()
 
-            c_drive = e.get("inner_drive") or "在动荡危机中维持生存与秩序。"
+            c_drive = e.get("inner_drive") or "践行自身处事准则与信念，追寻长远的目标与理想。"
             if user_rep_name:
                 c_drive = c_drive.replace("{{user}}", user_rep_name).replace("{{USER}}", user_rep_name)
             c_drive = cls.decouple_user_dependency(c_drive)
@@ -507,7 +507,7 @@ class IngestionService:
                             DetectedRelationship(
                                 npc_name=r_name,
                                 relation_type=r.get("relation_type", "关联者"),
-                                affinity=max(0, min(100, int(r.get("affinity", 50)))),
+                                affinity=max(-100, min(100, int(r.get("affinity", 50)))),
                                 summary=r_summary,
                             )
                         )
@@ -701,34 +701,101 @@ class IngestionService:
 
     @classmethod
     async def generate_from_quick_form(cls, req: QuickCharacterRequest) -> Dict[str, Any]:
-        """通过极简 4 维度表单，由 AI 标准化衍生完整角色、初始状态与作息"""
+        """通过灵活表单（所有项均可选），由 AI 智能衍生完整角色设定、NPC 关系网（含敌对/矛盾）与世界书"""
         sync_config_to_runtime()
 
         system_prompt = (
-            "你是一个小说世界观与硬核角色设计专家。用户提供了角色创建的4个极简维度：\n"
-            "名称、社会身份、性格底色、开局处境。\n"
-            "请根据这些信息，一次性衍生出符合设定的完整角色卡数据，严格输出为 JSON 对象，包含：\n"
-            "- name: 姓名\n"
-            "- title: 角色称号或头衔\n"
-            "- persona_summary: 核心性格与行为准则（200~400字，完整设定）\n"
-            "- inner_drive: 内在终极心理动机与不可磨灭的执念（50~100字）\n"
-            "- circadian_profile: 对象，包含 chronotype ('早起型'|'夜行型'|'昼夜无律型'|'无休眠体质'), "
-            "typical_rest_window (如 '23:00 - 07:00'), environment_tolerance (休眠环境要求), sleep_trigger_summary\n"
-            "- initial_health: 初始健康 (0~100, 建议 90~100)\n"
-            "- initial_stamina: 初始精力 (0~100, 建议 75~95)\n"
-            "- initial_inventory: 随身物品列表 (3~5件符合职业的物品)\n"
-            "- initial_goals: 当前紧迫目标列表 (2~3条)\n"
-            "- initial_location: 开局微观具体场景位置\n"
-            "- initial_virtual_time: 开局虚拟时间 (如 '晨光月 1日 08:00')\n"
-            "- initial_lore: 包含 title, content 的初始世界背景设定条目\n"
-            "严禁输出任何 Emoji 图标。"
+            "你是一个富有想象力的小说世界观与生动角色设计专家。\n"
+            "用户提供了一组角色的构想线索（可能包含完整设定，也可能极为轻量或全部留空）。\n"
+            "请遵循以下设计准则，衍生出基调契合、生动有趣、具有小说戏剧张力的推演蓝图：\n\n"
+            "1. 基调高度自适应（核心铁律）：\n"
+            "   - 必须敏锐体察用户的输入风格与情境氛围（涵盖日常温馨、轻松喜剧、奇幻冒险、赛博科幻、悬疑解谜、武侠江湖或严肃生存等任意体裁）。\n"
+            "   - 剧情冲突与人物心态必须严格契合该体裁的天然画风与精神风貌。严禁将轻松、生活化或温情的题材强行扭曲为压抑、阴暗、苦大仇深的风格。\n"
+            "   - 用户显式给出的内容是必须尊重的设定锚点；未提供的留空项，请紧扣该体裁基调原创补全。\n\n"
+            "2. 核心内在执念 (inner_drive) 去沉重化与正向动力源：\n"
+            "   - 核心执念是角色采取行动的内在动力源泉与长远追求（50~100字），绝不应公式化地归因于“童年创伤”、“被遗弃的恐惧”或精神病理性动机！\n"
+            "   - 执念应当自然且宽广，紧扣人物定位与世界法则：\n"
+            "     * 可以是目标理想与抱负追求（如探索世界边界、精进职业技艺、赢取特定荣誉等）；\n"
+            "     * 可以是情感羁绊、责任与誓约（如对同伴的守护、对师门或长辈的承诺、助人达成心愿等）；\n"
+            "     * 可以是纯粹的好奇心、探索欲、个性爱好或对生活的热忱；\n"
+            "     * 唯有在明确设定的残酷末世或生死危机情境下，才体现求生与对抗创伤。\n"
+            "   - 角色应是一个“因心中的追求与热爱而前行的人”，切勿将其写成被恐惧和心理阴影驱动的创伤病人。\n\n"
+            "3. 真实立体的人物塑造（生活化缺陷与性格反差）：\n"
+            "   - 拒绝千篇一律的完美圣人，但角色的弱点应是富有人情味的小毛病、个性反差或处事短板（如爱逞强、好面子、嘴硬心软、做事三分钟热度、贪吃嗜睡、爱恶作剧但偶有翻车、对特定事物毫无抵抗力等）。\n"
+            "   - 严禁强加精神病理学层面的阴暗病态心理或神经质防御机制。\n"
+            "   - 外貌 (appearance) 包含身型、五官特色、发型与典型穿着风格，贴合该世界的设定画风（80~150字）。\n\n"
+            "4. 人际网络与 NPC 关系（自适应张力，矛盾不等于死仇）：\n"
+            "   - 现实微型社交网络中的关系应当丰富多维，涵盖支持者、羁绊对象、观念不同者与竞争者，好感度 (affinity) 在 -100 到 100 之间浮动。\n"
+            "   - 负好感或对立关系源于立场分歧、性格不对付、日常争辩、行事风格差异或利益较劲，绝非所有冲突都是血海深仇或背叛追杀。\n"
+            "   - 必须生成 2~4 位与主角有直接交集的初始 NPC（若用户指定了 NPC，优先精准提取并丰富；未指定则按世界观基调原创）。\n"
+            "   - 渊源简述 (summary) 具体交代生动有趣的前因后果与相处纠葛（30~80字）。\n\n"
+            "5. 世界书条目 (lores) 提取与构建：\n"
+            "   - 从用户引导与世界背景中提炼 1~3 条核心设定条目（如社会组织规则、阵营势力格局、行业与能力法则、风土人情或特定戒律），使推演世界具有背景厚度与代入感。\n"
+            "   - 每条世界书包含：title, category ('static'|'dynamic'), trigger_keys, content (100~200字详实说明)。\n\n"
+            "6. 严禁使用任何 Emoji 图标。\n\n"
+            "严格输出有效 JSON 对象，格式如下：\n"
+            "{\n"
+            '  "name": "主角姓名",\n'
+            '  "title": "称号或头衔",\n'
+            '  "gender": "男/女/保密/自定义",\n'
+            '  "birthday": "生日或纪元时间",\n'
+            '  "appearance": "外貌特征详细描述",\n'
+            '  "persona_summary": "核心性格与处世准则（200~400字）",\n'
+            '  "inner_drive": "内在驱动力或长远追求（50~100字，与整体基调自洽，拒绝套路化创伤）",\n'
+            '  "circadian_profile": {\n'
+            '    "chronotype": "早起型"|"夜行型"|"昼夜无律型"|"无休眠体质",\n'
+            '    "typical_rest_window": "23:00 - 07:00",\n'
+            '    "environment_tolerance": "休眠环境要求",\n'
+            '    "sleep_trigger_summary": "疲惫与休眠触发机制"\n'
+            "  },\n"
+            '  "initial_health": 100,\n'
+            '  "initial_stamina": 85,\n'
+            '  "initial_psychological_state": "当前心理状态（与当下情境相符）",\n'
+            '  "initial_inventory": ["物品1", "物品2", "物品3"],\n'
+            '  "initial_goals": ["近期目标1", "长远愿景2"],\n'
+            '  "initial_location": "开局具体场景位置",\n'
+            '  "initial_virtual_time": "符合世界观纪元的起始时间（如：\'新历 342年 霜降月 1日 08:00\' 或 \'2024年10月10日 08:00\'）",\n'
+            '  "relationships": [\n'
+            "    {\n"
+            '      "npc_name": "NPC姓名",\n'
+            '      "relation_type": "关系类型（如搭档/同行者/竞争对手/导师/长辈等）",\n'
+            '      "affinity": 50,\n'
+            '      "summary": "与主角关系的具体因果背景"\n'
+            "    }\n"
+            "  ],\n"
+            '  "lores": [\n'
+            "    {\n"
+            '      "title": "条目标题",\n'
+            '      "category": "static",\n'
+            '      "trigger_keys": "",\n'
+            '      "content": "详细世界法则、社会环境或背景设定"\n'
+            "    }\n"
+            "  ]\n"
+            "}"
         )
-        user_prompt = (
-            f"角色名称: {req.name}\n"
-            f"社会身份: {req.role}\n"
-            f"性格底色: {req.archetype}\n"
-            f"开局处境: {req.initial_situation}\n"
-        )
+
+        user_prompt_lines = ["用户提供的角色创建线索如下（未填写的项请自主发挥）："]
+        if req.name and req.name.strip():
+            user_prompt_lines.append(f"- 角色姓名: {req.name.strip()}")
+        if req.gender and req.gender.strip():
+            user_prompt_lines.append(f"- 性别: {req.gender.strip()}")
+        if req.birthday and req.birthday.strip():
+            user_prompt_lines.append(f"- 生日/历法: {req.birthday.strip()}")
+        if req.role and req.role.strip():
+            user_prompt_lines.append(f"- 社会身份/职业: {req.role.strip()}")
+        if req.appearance and req.appearance.strip():
+            user_prompt_lines.append(f"- 外貌特征要求: {req.appearance.strip()}")
+        if req.archetype and req.archetype.strip():
+            user_prompt_lines.append(f"- 性格底色/处事风格: {req.archetype.strip()}")
+        if req.world_guidance and req.world_guidance.strip():
+            user_prompt_lines.append(f"- 世界观、社交网络与人际羁绊引导: {req.world_guidance.strip()}")
+        if req.initial_situation and req.initial_situation.strip():
+            user_prompt_lines.append(f"- 开局微观处境: {req.initial_situation.strip()}")
+
+        if len(user_prompt_lines) == 1:
+            user_prompt_lines.append("用户未提供任何输入，请自由发挥创意，构思一个生动有趣、具有鲜明个性与独特世界观的原创主角及引人入胜的开局处境。")
+
+        user_prompt = "\n".join(user_prompt_lines)
 
         raw = await llm_client.chat_completion(
             messages=[
@@ -736,8 +803,113 @@ class IngestionService:
                 {"role": "user", "content": user_prompt},
             ],
             json_mode=True,
-            temperature=0.7,
+            temperature=0.75,
         )
 
         cleaned = clean_json_str(raw)
-        return json.loads(cleaned)
+        data = json.loads(cleaned)
+
+        entity_id = f"ent-{uuid.uuid4().hex[:8]}"
+        name = strip_emojis(data.get("name") or req.name or "漫游者")
+        title = strip_emojis(data.get("title") or req.role or "探索者")
+        gender = strip_emojis(data.get("gender") or req.gender or "保密")
+        birthday = strip_emojis(data.get("birthday") or req.birthday or "")
+        appearance = strip_emojis(data.get("appearance") or req.appearance or "")
+        persona_summary = strip_emojis(data.get("persona_summary") or req.archetype or "性格鲜明，做事富有主见。")
+        inner_drive = strip_emojis(data.get("inner_drive") or "追寻自我的价值与生活的热爱。")
+        circadian = data.get("circadian_profile") or {
+            "chronotype": "早起型",
+            "typical_rest_window": "23:00 - 07:00",
+            "environment_tolerance": "寻常遮蔽环境",
+            "sleep_trigger_summary": "身心俱疲时自然陷入休眠",
+        }
+
+        # 关系列表清洗
+        raw_rels = data.get("relationships") or []
+        cleaned_relationships = []
+        for r in raw_rels:
+            npc_name = strip_emojis(r.get("npc_name", "")).strip()
+            if not npc_name:
+                continue
+            cleaned_relationships.append({
+                "npc_name": npc_name,
+                "relation_type": strip_emojis(r.get("relation_type", "同行者")),
+                "affinity": max(-100, min(100, int(r.get("affinity", 50)))),
+                "summary": strip_emojis(r.get("summary", "")),
+            })
+
+        # 世界书清洗
+        raw_lores = data.get("lores") or []
+        cleaned_lores = []
+        for l in raw_lores:
+            title_l = strip_emojis(l.get("title", "")).strip()
+            content_l = strip_emojis(l.get("content", "")).strip()
+            if not title_l or not content_l:
+                continue
+            cleaned_lores.append({
+                "category": "dynamic" if l.get("category") == "dynamic" else "static",
+                "trigger_keys": strip_emojis(l.get("trigger_keys", "")),
+                "title": title_l,
+                "content": content_l,
+            })
+
+        # 若未生成世界书，兜底提供一条常驻背景
+        if not cleaned_lores:
+            cleaned_lores.append({
+                "category": "static",
+                "trigger_keys": "",
+                "title": "世界初始法则",
+                "content": f"{name} 所处的世界处于生动演化之中，未知与机遇并存。",
+            })
+
+        detected_entity = {
+            "entity_id": entity_id,
+            "name": name,
+            "title": title,
+            "gender": gender,
+            "birthday": birthday,
+            "appearance": appearance,
+            "avatar_url": "",
+            "persona_summary": persona_summary,
+            "inner_drive": inner_drive,
+            "circadian_profile": circadian,
+            "relationships": cleaned_relationships,
+            "initial_location": strip_emojis(data.get("initial_location") or "起始场景"),
+            "initial_virtual_time": strip_emojis(data.get("initial_virtual_time") or "晨光月 1日 08:00"),
+            "initial_health": int(data.get("initial_health", 100)),
+            "initial_stamina": int(data.get("initial_stamina", 85)),
+            "initial_psychological_state": strip_emojis(data.get("initial_psychological_state") or "平稳且怀有期待"),
+            "initial_inventory": [strip_emojis(str(x)) for x in data.get("initial_inventory", ["随身笔记", "日常行囊"])],
+            "initial_goals": [strip_emojis(str(x)) for x in data.get("initial_goals", ["适应当下处境"])],
+        }
+
+        # 构造 CardParseResponse 兼容数据包，并保留顶层平铺字段以向后兼容
+        blueprint = {
+            "is_multi_entity": False,
+            "detected_entities": [detected_entity],
+            "detected_relationships": cleaned_relationships,
+            "total_lore_entries": len(cleaned_lores),
+            "lores": cleaned_lores,
+            "user_replacement_hint": None,
+            "raw_preview": data,
+            # 向后兼容字段
+            "entity_id": entity_id,
+            "name": name,
+            "title": title,
+            "gender": gender,
+            "birthday": birthday,
+            "appearance": appearance,
+            "persona_summary": persona_summary,
+            "inner_drive": inner_drive,
+            "circadian_profile": circadian,
+            "initial_location": detected_entity["initial_location"],
+            "initial_virtual_time": detected_entity["initial_virtual_time"],
+            "initial_health": detected_entity["initial_health"],
+            "initial_stamina": detected_entity["initial_stamina"],
+            "initial_psychological_state": detected_entity["initial_psychological_state"],
+            "initial_inventory": detected_entity["initial_inventory"],
+            "initial_goals": detected_entity["initial_goals"],
+            "relationships": cleaned_relationships,
+        }
+
+        return blueprint

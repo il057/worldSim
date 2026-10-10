@@ -171,9 +171,16 @@ async def import_card(req: CardImportRequest, db: Session = Depends(get_db)):
     }
 
 
+@router.post("/characters/generate-blueprint", response_model=CardParseResponse, status_code=200)
+async def generate_character_blueprint(req: QuickCharacterRequest):
+    """通过极简或自拟表单，由 AI 生成可供二次审查与微调的角色蓝图（不直接入库）"""
+    blueprint = await IngestionService.generate_from_quick_form(req)
+    return blueprint
+
+
 @router.post("/characters/generate-quick", response_model=Dict[str, Any], status_code=201)
 async def generate_quick_character(req: QuickCharacterRequest, db: Session = Depends(get_db)):
-    """极简表单（4 维度）通过 AI 一键衍生全套标准化角色实体、状态与作息"""
+    """极简表单直接由 AI 衍生全套标准化角色实体、状态、NPC 关系网与世界书并立即落库"""
     gen_data = await IngestionService.generate_from_quick_form(req)
 
     char_id = f"c-{uuid.uuid4().hex[:8]}"
@@ -181,11 +188,14 @@ async def generate_quick_character(req: QuickCharacterRequest, db: Session = Dep
 
     new_char = Character(
         id=char_id,
-        name=gen_data.get("name", req.name),
-        title=gen_data.get("title", req.role),
+        name=gen_data.get("name", req.name or "漫游者"),
+        title=gen_data.get("title", req.role or "漫游者"),
         avatar_url="",
-        persona_summary=gen_data.get("persona_summary", req.archetype),
-        inner_drive=gen_data.get("inner_drive", "在危机中维持生存。"),
+        gender=gen_data.get("gender", req.gender or "保密"),
+        birthday=gen_data.get("birthday", req.birthday or ""),
+        appearance=gen_data.get("appearance", req.appearance or ""),
+        persona_summary=gen_data.get("persona_summary", req.archetype or "性格鲜明，做事富有主见。"),
+        inner_drive=gen_data.get("inner_drive", "践行自身处事准则与信念，追寻长远的目标与理想。"),
         circadian_profile_json=json.dumps(circadian_data, ensure_ascii=False),
         is_active=1,
     )
@@ -199,7 +209,7 @@ async def generate_quick_character(req: QuickCharacterRequest, db: Session = Dep
         health=gen_data.get("initial_health", 100),
         stamina=gen_data.get("initial_stamina", 85),
         is_sleeping=0,
-        psychological_state="沉着审慎",
+        psychological_state=gen_data.get("initial_psychological_state", "沉着审慎"),
         inventory_json=json.dumps(gen_data.get("initial_inventory", ["行囊", "折刀"]), ensure_ascii=False),
         active_goals_json=json.dumps(gen_data.get("initial_goals", ["排查周边动静"]), ensure_ascii=False),
         completed_goals_json="[]",
@@ -207,30 +217,52 @@ async def generate_quick_character(req: QuickCharacterRequest, db: Session = Dep
     )
     db.add(init_state)
 
-    # 附带的世界书条目
-    lore_entry = gen_data.get("initial_lore")
-    if lore_entry and isinstance(lore_entry, dict):
-        db.add(
-            WorldLore(
-                character_id=char_id,
-                category="static",
-                trigger_keys="",
-                title=lore_entry.get("title", "世界法则背景"),
-                content=lore_entry.get("content", ""),
-                is_active=1,
+    # 保存关系
+    persisted_npc_names = set()
+    relationships = gen_data.get("relationships", [])
+    for rel in relationships:
+        npc_name = rel.get("npc_name", "").strip() if isinstance(rel, dict) else ""
+        if npc_name and npc_name not in persisted_npc_names:
+            persisted_npc_names.add(npc_name)
+            db.add(
+                CharacterRelationship(
+                    character_id=char_id,
+                    npc_name=npc_name,
+                    relation_type=rel.get("relation_type", "同行者"),
+                    affinity=int(rel.get("affinity", 50)),
+                    summary=rel.get("summary", ""),
+                    is_present=0,
+                )
             )
-        )
+
+    # 保存世界书
+    lores = gen_data.get("lores", [])
+    for l in lores:
+        if isinstance(l, dict) and l.get("title") and l.get("content"):
+            db.add(
+                WorldLore(
+                    character_id=char_id,
+                    category=l.get("category", "static"),
+                    trigger_keys=l.get("trigger_keys", ""),
+                    title=l.get("title", ""),
+                    content=l.get("content", ""),
+                    is_active=1,
+                )
+            )
 
     new_char.initial_snapshot_json = json.dumps({
-        "virtual_time": gen_data.get("initial_virtual_time", "2024年10月9日 08:00"),
-        "location": gen_data.get("initial_location", "荒原旧废墟据点"),
-        "health": gen_data.get("initial_health", 100),
-        "stamina": gen_data.get("initial_stamina", 85),
+        "gender": new_char.gender,
+        "birthday": new_char.birthday,
+        "appearance": new_char.appearance,
+        "virtual_time": init_state.virtual_time,
+        "location": init_state.location,
+        "health": init_state.health,
+        "stamina": init_state.stamina,
         "is_sleeping": 0,
-        "psychological_state": "沉着审慎",
-        "inventory": gen_data.get("initial_inventory", ["行囊", "折刀"]),
-        "active_goals": gen_data.get("initial_goals", ["排查周边动静"]),
-        "initial_npc_names": [],
+        "psychological_state": init_state.psychological_state,
+        "inventory": json.loads(init_state.inventory_json),
+        "active_goals": json.loads(init_state.active_goals_json),
+        "initial_npc_names": list(persisted_npc_names),
     }, ensure_ascii=False)
 
     db.commit()
@@ -240,4 +272,5 @@ async def generate_quick_character(req: QuickCharacterRequest, db: Session = Dep
         "character_id": new_char.id,
         "name": new_char.name,
         "message": "AI 标准化角色快速衍生创建完成",
+        "blueprint": gen_data,
     }

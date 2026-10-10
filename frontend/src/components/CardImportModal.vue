@@ -3,8 +3,8 @@
     <NeuCard class="modal-card" variant="flat">
       <div class="modal-header">
         <div class="header-title">
-          <Icon icon="material-symbols:upload-file" class="title-icon" />
-          <h3>酒馆角色卡摄入与全量设定微调</h3>
+          <Icon :icon="initialParseData ? 'material-symbols:auto-awesome' : 'material-symbols:upload-file'" class="title-icon" />
+          <h3>{{ initialParseData ? '角色推演蓝图全量微调与审查' : '酒馆角色卡摄入与全量设定微调' }}</h3>
         </div>
         <button class="close-btn" @click="$emit('close')">
           <Icon icon="material-symbols:close" />
@@ -12,7 +12,7 @@
       </div>
 
       <p class="modal-subtitle">
-        已自动解析角色卡设定。在正式开启推演前，您可以审查并调整角色人设、初始状态、人际关系与世界书。
+        {{ initialParseData ? 'AI 已为您智能生成角色设定、人际关系网与初始世界书。在正式开启推演前，您可以审查并按需调整所有细节。' : '已自动解析角色卡设定。在正式开启推演前，您可以审查并调整角色人设、初始状态、人际关系与世界书。' }}
       </p>
 
       <!-- 步骤 1: 上传解析 -->
@@ -411,10 +411,10 @@
                   <input v-model="npc.relation_type" class="neu-input" placeholder="如：主要搭档 / 导师 / 宿敌" />
                 </div>
                 <div class="form-field npc-affinity-field">
-                  <label>初始好感 (0-100)</label>
+                  <label>初始好感 (-100 ~ 100)</label>
                   <input
                     type="number"
-                    min="0"
+                    min="-100"
                     max="100"
                     v-model.number="npc.affinity"
                     class="neu-input"
@@ -517,9 +517,9 @@
         <div class="modal-actions">
           <NeuButton
             type="button"
-            icon="material-symbols:restart-alt"
-            label="重新选择文件"
-            @click="resetAll"
+            :icon="initialParseData ? 'material-symbols:arrow-back' : 'material-symbols:restart-alt'"
+            :label="initialParseData ? '返回重新构思' : '重新选择文件'"
+            @click="handleBackOrReset"
           />
           <NeuButton
             type="button"
@@ -536,7 +536,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import NeuCard from './NeuCard.vue'
 import NeuButton from './NeuButton.vue'
@@ -566,11 +566,13 @@ const loreCategoryOptions = [
 
 const props = defineProps<{
   isOpen: boolean
+  initialParseData?: CardParseResponse | null
 }>()
 
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'imported', characterId: string): void
+  (e: 'backToQuick'): void
 }>()
 
 const isParsing = ref(false)
@@ -593,6 +595,41 @@ const activeEntity = computed(() => {
 const selectEntity = (id: string) => {
   currentEntityId.value = id
 }
+
+const applyParseData = (data: CardParseResponse) => {
+  parsedData.value = data
+  editableEntities.value = (data.detected_entities || []).map((ent) => ({
+    ...ent,
+    relationships: ent.relationships && ent.relationships.length > 0
+      ? JSON.parse(JSON.stringify(ent.relationships))
+      : JSON.parse(JSON.stringify(data.detected_relationships || [])),
+  }))
+  editableLores.value = JSON.parse(JSON.stringify(data.lores || []))
+
+  if (editableEntities.value.length > 0) {
+    currentEntityId.value = editableEntities.value[0].entity_id
+  }
+  activeTab.value = 'persona'
+}
+
+watch(
+  () => props.initialParseData,
+  (newData) => {
+    if (newData) {
+      applyParseData(newData)
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => props.isOpen,
+  (open) => {
+    if (open && props.initialParseData) {
+      applyParseData(props.initialParseData)
+    }
+  }
+)
 
 const handleFileUpload = async (e: Event) => {
   const target = e.target as HTMLInputElement
@@ -715,11 +752,18 @@ const removeLore = (index: number) => {
   editableLores.value.splice(index, 1)
 }
 
-const resetAll = () => {
+const clearState = () => {
   parsedData.value = null
   editableEntities.value = []
   editableLores.value = []
   currentEntityId.value = ''
+}
+
+const handleBackOrReset = () => {
+  clearState()
+  if (props.initialParseData) {
+    emit('backToQuick')
+  }
 }
 
 const handleImport = async () => {
@@ -743,7 +787,7 @@ const handleImport = async () => {
     toast.showSuccess(`角色【${activeEntity.value.name}】及世界设定已成功导入！`)
     emit('imported', res.data.character_id)
     emit('close')
-    resetAll()
+    clearState()
   } catch (err: any) {
     toast.show({
       type: 'error',

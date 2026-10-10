@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 from typing import Dict, Optional
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.models import Character, CharacterState, StoryLog, WorldLore, CharacterRelationship
 from app.schemas import (
@@ -705,3 +706,107 @@ class SimulationService:
         db.commit()
         db.refresh(state)
         logger.info(f"角色【{character.name}】历史已成功清空，已恢复至开局全量原始设置")
+
+    @classmethod
+    def rollback_to_tick(cls, db: Session, character_id: str, target_tick: int) -> int:
+        """回滚世界状态至 target_tick 之前，并级联删除 tick_index >= target_tick 的所有切片"""
+        character = db.query(Character).filter(Character.id == character_id).first()
+        state = db.query(CharacterState).filter(CharacterState.character_id == character_id).first()
+        if not character or not state:
+            return 0
+
+        # 1. 查询保留的历史记录 (tick_index < target_tick)
+        remaining_logs = (
+            db.query(StoryLog)
+            .filter(
+                StoryLog.character_id == character_id,
+                StoryLog.tick_index < target_tick,
+            )
+            .order_by(StoryLog.tick_index.asc())
+            .all()
+        )
+
+        # 2. 统计并级联删除 >= target_tick 的所有切片
+        deleted_count = (
+            db.query(StoryLog)
+            .filter(
+                StoryLog.character_id == character_id,
+                StoryLog.tick_index >= target_tick,
+            )
+            .delete()
+        )
+
+        # 3. 将角色状态及 NPC 关系还原至初始快照
+        if character.initial_snapshot_json:
+            try:
+                snap = json.loads(character.initial_snapshot_json)
+                state.virtual_time = snap.get("virtual_time") or state.virtual_time
+                state.location = snap.get("location") or state.location
+                state.health = snap.get("health", 100)
+                state.stamina = snap.get("stamina", 90)
+                state.is_sleeping = snap.get("is_sleeping", 0)
+                state.psychological_state = snap.get("psychological_state") or "平静内敛"
+                state.inventory_json = json.dumps(snap.get("inventory") or [], ensure_ascii=False)
+                state.active_goals_json = json.dumps(snap.get("active_goals") or [], ensure_ascii=False)
+                state.completed_goals_json = "[]"
+                state.total_ticks = 0
+
+                init_npc_names = set(snap.get("initial_npc_names") or [])
+                if init_npc_names:
+                    all_npcs = db.query(CharacterRelationship).filter(CharacterRelationship.character_id == character_id).all()
+                    for npc in all_npcs:
+                        if npc.npc_name not in init_npc_names:
+                            db.delete(npc)
+                        else:
+                            npc.is_present = 0
+            except Exception as e:
+                logger.error(f"解析角色初始快照异常: {e}")
+        else:
+            state.health = 100
+            state.stamina = 90
+            state.is_sleeping = 0
+            state.completed_goals_json = "[]"
+            state.total_ticks = 0
+
+        # 4. 依次重放所有保留切片的 delta，精确恢复至 target_tick - 1 刻的状态
+        for log in remaining_logs:
+            try:
+                delta = ArbitratorDelta.model_validate_json(log.delta_snapshot_json)
+                _apply_tick_delta(db, character, state, delta)
+            except Exception as e:
+                logger.error(f"重放日志 delta 失败 (tick {log.tick_index}): {e}")
+                state.total_ticks = log.tick_index
+                state.virtual_time = log.virtual_time
+                state.location = log.location
+
+        db.commit()
+        db.refresh(state)
+        logger.info(f"角色【{character.name}】已成功回滚至第 {target_tick - 1} 刻，级联删除 {deleted_count} 条故事切片")
+        return deleted_count
+
+    @classmethod
+    def update_story_log(
+        cls,
+        db: Session,
+        character_id: str,
+        log_id: int,
+        narrative_prose: str,
+        plot_beat: Optional[str] = None,
+    ) -> StoryLog:
+        """更新指定故事切片的文学正文与事实骨架"""
+        log = (
+            db.query(StoryLog)
+            .filter(StoryLog.id == log_id, StoryLog.character_id == character_id)
+            .first()
+        )
+        if not log:
+            raise HTTPException(status_code=404, detail="未找到该故事切片")
+
+        log.narrative_prose = narrative_prose
+        if plot_beat is not None:
+            log.plot_beat = plot_beat
+
+        db.commit()
+        db.refresh(log)
+        logger.info(f"故事切片 (ID: {log_id}, 第 {log.tick_index} 刻) 正文已更新")
+        return log

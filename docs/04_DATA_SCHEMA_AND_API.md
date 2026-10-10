@@ -142,8 +142,14 @@ CREATE TABLE IF NOT EXISTS system_configs (
 - **响应契约（Response 201）**：
   返回创建完成的 `character_id`、`name` 以及提示信息。
 
+#### POST `/api/v1/characters/generate-blueprint`
+- **功能**：由灵活表单（全字段可选，支持姓名、性别、生日、外貌、性格、世界与人际指引）通过 AI 智能衍生角色设定、具有张力的人际关系网（含敌对/矛盾/损友等）与世界书设定，返回结构完全兼容 `CardParseResponse`，供前端进行全量微调预审。
+- **请求体（Request Body）**：`QuickCharacterRequest`（支持 `name`, `gender`, `birthday`, `role`, `appearance`, `archetype`, `world_guidance`, `initial_situation`，全字段可选）。
+- **响应体（Response 200）**：返回 `CardParseResponse` 蓝图对象。
+
 #### POST `/api/v1/characters/generate-quick`
-- **功能**：由极简表单（4 维度）通过 AI 一键衍生全套标准化角色实体与作息画像。
+- **功能**：由表单直接通过 AI 衍生全套标准化角色实体、生理状态看板、NPC 关系网与世界书并立即原子化落库。
+- **响应契约（Response 201）**：返回 `character_id`、`name`、`message` 以及 `blueprint`。
 
 ---
 
@@ -207,6 +213,28 @@ CREATE TABLE IF NOT EXISTS system_configs (
 - **功能**：分页拉取小说正文切片流水。
 - **查询参数**：`page=1&page_size=20`
 - **响应内容**：返回按 `tick_index` 正序排列的高精小说切片数组，包含文学正文、客观事实骨架及对应的状态增量快照。
+
+#### PUT `/api/v1/characters/{character_id}/timeline/{log_id}`
+- **功能**：直接修改与校对指定故事切片的文学正文（及可选客观事实骨架）。
+- **请求体（Request Body）**：
+```json
+{
+  "narrative_prose": "修改后的文学正文内容...",
+  "plot_beat": "可选更新的因果事实经过"
+}
+```
+- **响应内容**：返回更新后的 `StoryLogView`。
+
+#### DELETE `/api/v1/characters/{character_id}/timeline/{log_id}`
+- **功能**：从指定故事切片起执行级联删除（即删除当前切片及其后续所有切片，例如 5 条记录中删除第 2 条会自动级联删除第 2、3、4、5 条），并依据保留的前序切片增量快照自动精确回滚角色生理看板、作息、背包、目标与 NPC 社交关系网。
+- **响应内容**：
+```json
+{
+  "message": "第 2 刻及后续切片已成功删除（共删除 4 刻），世界状态已同步回滚",
+  "deleted_count": 4,
+  "rollback_to_tick": 1
+}
+```
 
 #### POST `/api/v1/characters/{character_id}/reset`
 - **功能**：重置当前角色世界。清空全部 `story_logs`，将状态回滚至初始状态（开局处境）。

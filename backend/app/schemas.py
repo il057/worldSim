@@ -85,10 +85,14 @@ class CardImportRequest(BaseModel):
 
 
 class QuickCharacterRequest(BaseModel):
-    name: str = Field(..., description="角色姓名")
-    role: str = Field(..., description="社会身份或职业")
-    archetype: str = Field(..., description="性格底色与处事准则")
-    initial_situation: str = Field(..., description="开局微观处境与危机")
+    name: Optional[str] = Field(default="", description="角色姓名（可选，未填由AI生成）")
+    gender: Optional[str] = Field(default="", description="性别（可选，男/女/保密/自定义）")
+    birthday: Optional[str] = Field(default="", description="生日或历法时间（可选）")
+    role: Optional[str] = Field(default="", description="社会身份或职业（可选）")
+    appearance: Optional[str] = Field(default="", description="外貌特征描述（可选）")
+    archetype: Optional[str] = Field(default="", description="性格底色与处事风格（可选）")
+    world_guidance: Optional[str] = Field(default="", description="世界观、社交圈与人际羁绊引导（可选）")
+    initial_situation: Optional[str] = Field(default="", description="开局微观处境与危机（可选）")
 
 
 # -----------------------------
@@ -168,6 +172,11 @@ class StoryLogView(BaseModel):
     narrative_prose: str
     delta_snapshot: ArbitratorDelta
     created_at: Optional[datetime] = None
+
+
+class StoryLogUpdateRequest(BaseModel):
+    narrative_prose: str
+    plot_beat: Optional[str] = None
 
 
 class CharacterRelationshipView(BaseModel):

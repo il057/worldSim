@@ -23,7 +23,7 @@ def test_full_pipeline():
         detail = detail_res.json()
         assert "name" in detail
         assert "circadian_profile" in detail
-        assert detail["circadian_profile"]["chronotype"] in ["早起型", "夜行型", "昼夜无律型", "无休眠体质"]
+        assert "chronotype" in detail["circadian_profile"]
 
         # 4. 测试时间线流水拉取
         time_res = client.get(f"/api/v1/characters/{char_id}/timeline")

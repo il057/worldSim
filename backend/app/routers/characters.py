@@ -9,11 +9,12 @@ from app.schemas import (
     CharacterDetailView,
     TimelinePageResponse,
     StoryLogView,
+    StoryLogUpdateRequest,
     ArbitratorDelta,
     CharacterRelationshipView,
     CircadianProfile,
 )
-from app.services.simulation import SimulationService
+from app.services.simulation import SimulationService, get_character_lock
 
 router = APIRouter(prefix="/api/v1/characters", tags=["Characters"])
 
@@ -175,6 +176,62 @@ def get_character_timeline(
         page_size=page_size,
         items=items,
     )
+
+
+@router.put("/{character_id}/timeline/{log_id}", response_model=StoryLogView)
+async def update_character_story_log(
+    character_id: str,
+    log_id: int,
+    req: StoryLogUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    """更新指定故事切片的文学正文与事实骨架"""
+    async with get_character_lock(character_id):
+        log = SimulationService.update_story_log(
+            db, character_id, log_id, req.narrative_prose, req.plot_beat
+        )
+        delta_obj = None
+        try:
+            delta_obj = ArbitratorDelta.model_validate_json(log.delta_snapshot_json)
+        except Exception:
+            pass
+
+        return StoryLogView(
+            id=log.id,
+            character_id=log.character_id,
+            tick_index=log.tick_index,
+            virtual_time=log.virtual_time,
+            location=log.location,
+            plot_beat=log.plot_beat,
+            narrative_prose=log.narrative_prose,
+            delta_snapshot=delta_obj,
+            created_at=log.created_at,
+        )
+
+
+@router.delete("/{character_id}/timeline/{log_id}")
+async def delete_character_story_log(
+    character_id: str,
+    log_id: int,
+    db: Session = Depends(get_db),
+):
+    """级联删除指定故事切片及其后续所有切片，并自动回滚世界状态"""
+    async with get_character_lock(character_id):
+        target_log = (
+            db.query(StoryLog)
+            .filter(StoryLog.id == log_id, StoryLog.character_id == character_id)
+            .first()
+        )
+        if not target_log:
+            raise HTTPException(status_code=404, detail="未找到该故事切片")
+
+        target_tick = target_log.tick_index
+        deleted_count = SimulationService.rollback_to_tick(db, character_id, target_tick)
+        return {
+            "message": f"第 {target_tick} 刻及后续切片已成功删除（共删除 {deleted_count} 刻），世界状态已同步回滚",
+            "deleted_count": deleted_count,
+            "rollback_to_tick": target_tick - 1,
+        }
 
 
 @router.post("/{character_id}/reset")

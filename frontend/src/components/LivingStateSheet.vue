@@ -154,20 +154,26 @@
             <span class="npc-relation-badge neu-flat-xs">{{ npc.relation_type }}</span>
           </div>
 
-          <!-- 第二行：好感度以进度条显示 -->
-          <div class="npc-affinity-row">
+          <!-- 第二行：好感度以进度条显示（负数采用专属对立/戒备特化样式） -->
+          <div class="npc-affinity-row" :class="{ 'is-negative': npc.affinity < 0 }">
             <div class="affinity-meta">
               <span class="affinity-title">
-                <Icon icon="material-symbols:favorite" class="affinity-icon" />
-                好感度
+                <Icon
+                  :icon="npc.affinity < 0 ? 'material-symbols:heart-broken' : 'material-symbols:favorite'"
+                  class="affinity-icon"
+                />
+                {{ npc.affinity < 0 ? '戒备度' : '好感度' }}
               </span>
-              <span class="affinity-val">{{ npc.affinity }} / 100</span>
+              <span class="affinity-val" :class="{ 'negative-val': npc.affinity < 0 }">
+                {{ npc.affinity > 0 ? `+${npc.affinity}` : npc.affinity }} / 100
+              </span>
             </div>
-            <div class="affinity-bar-track neu-inset-xs">
+            <div class="affinity-bar-track neu-inset-xs" :class="{ 'track-negative': npc.affinity < 0 }">
               <div
                 class="affinity-bar-fill"
+                :class="{ 'fill-negative': npc.affinity < 0 }"
                 :style="{
-                  width: `${Math.min(100, Math.max(0, npc.affinity))}%`,
+                  width: `${Math.min(100, Math.max(0, Math.abs(npc.affinity)))}%`,
                   backgroundColor: getAffinityColor(npc.affinity)
                 }"
               ></div>
@@ -242,10 +248,14 @@ function parseNpcSummary(summary: string | undefined): { background: string; att
 }
 
 function getAffinityColor(affinity: number): string {
+  if (affinity < 0) {
+    if (affinity <= -60) return '#be123c' // 极度对立/敌视
+    return '#e11d48' // 戒备/厌恶
+  }
   if (affinity >= 70) return 'var(--neu-accent)'
   if (affinity >= 50) return 'var(--neu-success)'
   if (affinity >= 30) return 'var(--neu-warning)'
-  return 'var(--neu-danger)'
+  return '#94a3b8' // 平平淡淡 / 中立
 }
 
 const inventory = computed(() => props.state?.inventory || [])
@@ -630,6 +640,31 @@ const getStaminaColor = (val: number) => {
   height: 100%;
   border-radius: 9999px;
   transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+/* 负数好感（对立/戒备）特化警示样式 */
+.npc-affinity-row.is-negative .affinity-title {
+  color: #e11d48;
+}
+
+.npc-affinity-row.is-negative .affinity-icon {
+  color: #e11d48;
+}
+
+.affinity-val.negative-val {
+  color: #e11d48;
+  font-weight: 700;
+}
+
+.affinity-bar-track.track-negative {
+  background: rgba(225, 29, 72, 0.08);
+  border: 1px dashed rgba(225, 29, 72, 0.35);
+  box-shadow: inset 1px 1px 3px rgba(225, 29, 72, 0.2), inset -1px -1px 3px var(--neu-shadow-light);
+}
+
+.affinity-bar-fill.fill-negative {
+  background: linear-gradient(90deg, #f43f5e, #be123c) !important;
+  box-shadow: 0 0 6px rgba(225, 29, 72, 0.45);
 }
 
 /* 第三行：人设背景与羁绊特殊展示 */
