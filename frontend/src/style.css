@@ -29,6 +29,10 @@
   --shadow-active: inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light);
   --shadow-inset: inset 5px 5px 10px var(--neu-dark), inset -5px -5px 10px var(--neu-light);
   --shadow-inset-sm: inset 2px 2px 5px var(--neu-dark), inset -2px -2px 5px var(--neu-light);
+
+  /* 统一全局滚动条变量 (浅色模式) */
+  --scrollbar-thumb: rgba(160, 174, 192, 0.45);
+  --scrollbar-thumb-hover: rgba(113, 128, 150, 0.75);
 }
 
 :root[data-theme="dark"],
@@ -54,6 +58,10 @@ body[data-theme="dark"],
   --shadow-active: inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light);
   --shadow-inset: inset 5px 5px 10px var(--neu-dark), inset -5px -5px 10px var(--neu-light);
   --shadow-inset-sm: inset 2px 2px 5px var(--neu-dark), inset -2px -2px 5px var(--neu-light);
+
+  /* 统一全局滚动条变量 (深色模式：柔和低对比透明胶囊，杜绝突兀白色) */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.16);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
 }
 
 * {
@@ -113,7 +121,12 @@ body,
   border-radius: 8px;
 }
 
-/* 自定义全局优雅滚动条 (透明轨道，杜绝外露底色块) */
+/* 自定义全局优雅滚动条 (透明轨道，深浅主题自适应胶囊) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -122,19 +135,10 @@ body,
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(196, 201, 212, 0.65);
+  background: var(--scrollbar-thumb);
   border-radius: 999px;
+  transition: background 0.2s ease;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--neu-text-secondary);
-}
-
-[data-theme="dark"] ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.28);
-}
-[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.5);
-}
-[data-theme="dark"] * {
-  scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+  background: var(--scrollbar-thumb-hover);
 }

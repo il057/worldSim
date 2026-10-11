@@ -92,37 +92,37 @@
           @click="isMobileRightDrawerOpen = true"
         >
           <Icon icon="material-symbols:vital-signs" class="nav-icon" />
-          <span>看板</span>
+          <span></span>
         </button>
 
         <!-- 文风与提示词按钮 -->
         <button
           class="icon-action-btn neu-flat-sm"
-          title="配置叙事文风、文学技法与字数篇幅"
-          @click="isPromptModalOpen = true"
+          :class="{ 'is-active': activeCenterView === 'prompt' }"
+          title="文风与演化提示词工坊"
+          @click="toggleCenterView('prompt')"
         >
           <Icon icon="material-symbols:style" class="nav-icon" />
-          <span class="btn-label-desktop">文风与设定</span>
         </button>
 
         <!-- 世界书按钮 -->
         <button
           class="icon-action-btn neu-flat-sm"
-          title="查看与管理世界书条目"
-          @click="isLoreModalOpen = true"
+          :class="{ 'is-active': activeCenterView === 'lore' }"
+          title="世界书与法则条目"
+          @click="toggleCenterView('lore')"
         >
           <Icon icon="material-symbols:menu-book" class="nav-icon" />
-          <span class="btn-label-desktop">世界书</span>
         </button>
 
         <!-- API 与系统设置 -->
         <button
           class="icon-action-btn neu-flat-sm"
-          title="模型接口与运行设置"
-          @click="isConfigModalOpen = true"
+          :class="{ 'is-active': rightPanelView === 'settings' }"
+          title="系统设置与外观"
+          @click="toggleSettings"
         >
           <Icon icon="material-symbols:settings" class="nav-icon" />
-          <span class="btn-label-desktop">设置</span>
         </button>
 
         <!-- 重置推演历程 -->
@@ -172,9 +172,6 @@
             <Icon icon="material-symbols:menu" class="header-icon" />
             导航与角色列表
           </span>
-          <button class="drawer-close-btn" @click="closeLeftDrawer">
-            <Icon icon="material-symbols:close" />
-          </button>
         </div>
 
         <CharacterDrawer
@@ -190,73 +187,89 @@
         />
       </aside>
 
-      <!-- B. 中间核心：场景小说长卷阅读流 (Novel Timeline Stream) -->
+      <!-- B. 中间核心：根据 activeCenterView 动态呈现 (长卷 / 世界书 / 文风工坊) -->
       <main class="center-novel-stream">
-        <!-- 始终常驻在顶部的演化长卷标头与微光阅读进度条 -->
-        <div class="stream-top-bar neu-flat-sm">
-          <div class="stream-title-group">
-            <Icon icon="material-symbols:auto-stories" class="book-icon" />
-            <h1 class="stream-heading">
-              {{ worldStore.currentDetail?.name || '虚拟世界' }} · 演化长卷
-            </h1>
-          </div>
-          <div class="stream-meta-group">
-            <span class="counter-badge">
-              累计 {{ worldStore.timeline.length }} 刻故事切片
-            </span>
-          </div>
-          <!-- 极简沉浸式阅读进度微光指示槽 (始终常驻顶部，随长卷向下滚动平滑生长) -->
-          <div class="read-progress-track" title="阅读进度">
-            <div class="read-progress-fill" :style="{ width: `${readProgress}%` }" />
-          </div>
-        </div>
-
-        <!-- 小说正文切片可滚动长卷流 (独立视口) -->
-        <div
-          v-if="worldStore.timeline.length || worldStore.streamingLog"
-          class="stream-scroll-viewport"
-          ref="centerStreamRef"
-          @scroll="handleStreamScroll"
-        >
-          <div class="stream-card-list">
-            <div
-              v-for="(log, idx) in worldStore.timeline"
-              :key="log.id"
-              :id="`log-${log.id}`"
-              class="log-anchor-wrapper"
-            >
-              <TimelineLogItem
-                :log="log"
-                :is-latest="idx === worldStore.timeline.length - 1 && !worldStore.streamingLog"
-              />
+        <!-- 1. 演化长卷正文流 (使用 v-show 保证阅读滚动位置完全保留) -->
+        <div v-show="activeCenterView === 'timeline'" class="center-stream-container">
+          <!-- 始终常驻在顶部的演化长卷标头与微光阅读进度条 -->
+          <div class="stream-top-bar neu-flat-sm">
+            <div class="stream-title-group">
+              <Icon icon="material-symbols:auto-stories" class="book-icon" />
+              <h1 class="stream-heading">
+                {{ worldStore.currentDetail?.name || '虚拟世界' }} · 演化长卷
+              </h1>
             </div>
-
-            <!-- 实时流式切片卡片 -->
-            <div
-              v-if="worldStore.streamingLog"
-              id="log-streaming"
-              class="log-anchor-wrapper"
-            >
-              <TimelineLogItem
-                :log="worldStore.streamingLog"
-                :is-latest="true"
-                :is-streaming="true"
-              />
+            <div class="stream-meta-group">
+              <span class="counter-badge">
+                累计 {{ worldStore.timeline.length }} 刻故事切片
+              </span>
+            </div>
+            <!-- 极简沉浸式阅读进度微光指示槽 (始终常驻顶部，随长卷向下滚动平滑生长) -->
+            <div class="read-progress-track" title="阅读进度">
+              <div class="read-progress-fill" :style="{ width: `${readProgress}%` }" />
             </div>
           </div>
+
+          <!-- 小说正文切片可滚动长卷流 (独立视口) -->
+          <div
+            v-if="worldStore.timeline.length || worldStore.streamingLog"
+            class="stream-scroll-viewport"
+            ref="centerStreamRef"
+            @scroll="handleStreamScroll"
+          >
+            <div class="stream-card-list">
+              <div
+                v-for="(log, idx) in worldStore.timeline"
+                :key="log.id"
+                :id="`log-${log.id}`"
+                class="log-anchor-wrapper"
+              >
+                <TimelineLogItem
+                  :log="log"
+                  :is-latest="idx === worldStore.timeline.length - 1 && !worldStore.streamingLog"
+                />
+              </div>
+
+              <!-- 实时流式切片卡片 -->
+              <div
+                v-if="worldStore.streamingLog"
+                id="log-streaming"
+                class="log-anchor-wrapper"
+              >
+                <TimelineLogItem
+                  :log="worldStore.streamingLog"
+                  :is-latest="true"
+                  :is-streaming="true"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- 空白占位提示 -->
+          <div v-else class="empty-world-view neu-card neu-flat">
+            <Icon icon="material-symbols:menu-book" class="empty-big-icon" />
+            <h2 class="empty-title">当前世界尚未记录任何故事切片</h2>
+            <p class="empty-desc">
+              点击上方导航条的 <strong>[+1h]</strong> 或 <strong>[突发事件]</strong> 按钮，开启虚拟角色的自主推演历程。
+            </p>
+          </div>
         </div>
 
-        <!-- 空白占位提示 -->
-        <div v-else class="empty-world-view neu-card neu-flat">
-          <Icon icon="material-symbols:menu-book" class="empty-big-icon" />
-          <h2 class="empty-title">当前世界尚未记录任何故事切片</h2>
-          <p class="empty-desc">
-            点击上方导航条的 <strong>[+1h]</strong> 或 <strong>[突发事件]</strong> 按钮，开启虚拟角色的自主推演历程。
-          </p>
-        </div>
+        <!-- 2. 世界书与法则条目工作台 (原位呈现) -->
+        <WorldLoreView
+          v-if="activeCenterView === 'lore'"
+          :character-id="worldStore.currentCharacterId"
+          @back="activeCenterView = 'timeline'"
+        />
+
+        <!-- 3. 文风与演化提示词工坊 (原位呈现) -->
+        <PromptEditorView
+          v-if="activeCenterView === 'prompt'"
+          @back="activeCenterView = 'timeline'"
+        />
       </main>
 
-      <!-- C. 右侧：常驻角色 Living State 看板 (Permanent Dashboard) -->
+      <!-- C. 右侧：常驻角色 Living State 看板 / 系统设置面板 (零 Overlay 原位切换) -->
       <aside
         :class="[
           'right-drawer-panel',
@@ -264,23 +277,55 @@
           { 'mobile-open': isMobileRightDrawerOpen }
         ]"
       >
-        <div class="dashboard-header-bar neu-inset-sm">
-          <div class="dashboard-header-title">
-            <Icon icon="material-symbols:vital-signs" class="header-icon" />
-            <span>角色即时看板</span>
+        <!-- 当处于设置模式时：展示系统设置与外观面板 -->
+        <template v-if="rightPanelView === 'settings'">
+          <div class="right-panel-header neu-flat-sm">
+            <div class="panel-header-left">
+              <Icon icon="material-symbols:settings" class="panel-icon" />
+              <h3 class="panel-heading">系统设置与外观</h3>
+            </div>
+            <div class="panel-header-right">
+              <!-- 保存设置：删除文字只保留 svg 确保不会拥挤 -->
+              <button
+                type="button"
+                class="save-icon-btn neu-flat-sm"
+                title="保存配置"
+                :disabled="isConfigSaving"
+                @click="saveSystemConfig"
+              >
+                <Icon
+                  :icon="isConfigSaving ? 'line-md:loading-loop' : 'material-symbols:save'"
+                  class="save-icon"
+                />
+              </button>
+            </div>
           </div>
-          <div class="dashboard-header-right">
-            <span class="char-pill">{{ worldStore.currentDetail?.name || '未选定' }}</span>
-          </div>
-        </div>
 
-        <!-- 常驻显示 LivingStateSheet，不再需要多标签切换与折叠关闭 -->
-        <div class="right-panel-body">
-          <LivingStateSheet
-            :character="worldStore.currentDetail"
-            :state="worldStore.currentState"
-          />
-        </div>
+          <div class="right-panel-body">
+            <SystemConfigPanel ref="configPanelRef" @close="rightPanelView = 'dashboard'" />
+          </div>
+        </template>
+
+        <!-- 默认模式：展示角色即时看板 -->
+        <template v-else>
+          <div class="right-panel-header neu-flat-sm">
+            <div class="panel-header-left">
+              <Icon icon="material-symbols:vital-signs" class="panel-icon" />
+              <h3 class="panel-heading">角色即时看板</h3>
+            </div>
+            <div class="panel-header-right">
+              <span class="char-pill">{{ worldStore.currentDetail?.name || '未选定' }}</span>
+            </div>
+          </div>
+
+          <!-- 常驻显示 LivingStateSheet -->
+          <div class="right-panel-body">
+            <LivingStateSheet
+              :character="worldStore.currentDetail"
+              :state="worldStore.currentState"
+            />
+          </div>
+        </template>
       </aside>
     </div>
 
@@ -352,24 +397,6 @@
       @confirm="handleIncidentConfirm"
     />
 
-    <!-- 提示词配置模态弹窗 -->
-    <PromptEditorModal
-      :is-open="isPromptModalOpen"
-      @close="isPromptModalOpen = false"
-    />
-
-    <!-- 世界书管理模态弹窗 -->
-    <WorldLoreModal
-      :is-open="isLoreModalOpen"
-      :character-id="worldStore.currentCharacterId"
-      @close="isLoreModalOpen = false"
-    />
-
-    <!-- API 与引擎配置模态弹窗 -->
-    <SystemConfigModal
-      :is-open="isConfigModalOpen"
-      @close="isConfigModalOpen = false"
-    />
 
     <!-- 角色新建与导入弹窗 -->
     <QuickCharacterModal
@@ -395,14 +422,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import TimelineLogItem from './components/TimelineLogItem.vue'
 import LivingStateSheet from './components/LivingStateSheet.vue'
 import CharacterDrawer from './components/CharacterDrawer.vue'
-import PromptEditorModal from './components/PromptEditorModal.vue'
-import WorldLoreModal from './components/WorldLoreModal.vue'
-import SystemConfigModal from './components/SystemConfigModal.vue'
+import PromptEditorView from './components/PromptEditorView.vue'
+import WorldLoreView from './components/WorldLoreView.vue'
+import SystemConfigPanel from './components/SystemConfigPanel.vue'
 import QuickCharacterModal from './components/QuickCharacterModal.vue'
 import CardImportModal from './components/CardImportModal.vue'
 import IncidentTriggerModal from './components/IncidentTriggerModal.vue'
@@ -417,16 +444,41 @@ const worldStore = useWorldStore()
 const { confirm } = useConfirm()
 const toast = useToast()
 
-// 抽屉与模态状态
+// 抽屉与工作区状态
 const centerStreamRef = ref<HTMLElement | null>(null)
 const isLeftDrawerOpen = ref(window.innerWidth >= 1280) // 桌面宽屏默认打开左侧
 const isLeftDrawerOpenMobile = ref(false)               // 移动端左侧抽屉开关
 const isMobileRightDrawerOpen = ref(false)              // 移动端右侧看板开关
 
+// 中间主视口激活视图：'timeline' | 'lore' | 'prompt'
+const activeCenterView = ref<'timeline' | 'lore' | 'prompt'>('timeline')
+
+// 右侧看板主视口视图：'dashboard' (角色即时看板) | 'settings' (系统设置与外观)
+const rightPanelView = ref<'dashboard' | 'settings'>('dashboard')
+
+const toggleCenterView = (view: 'lore' | 'prompt') => {
+  activeCenterView.value = activeCenterView.value === view ? 'timeline' : view
+}
+
+const toggleSettings = () => {
+  if (rightPanelView.value === 'settings') {
+    rightPanelView.value = 'dashboard'
+  } else {
+    rightPanelView.value = 'settings'
+    if (window.innerWidth < 1024) {
+      isMobileRightDrawerOpen.value = true
+    }
+  }
+}
+
+// 系统设置面板引用与保存操作
+const configPanelRef = ref<any>(null)
+const isConfigSaving = computed(() => configPanelRef.value?.isSaving || false)
+const saveSystemConfig = () => {
+  configPanelRef.value?.handleSave()
+}
+
 // 模态弹窗状态
-const isPromptModalOpen = ref(false)
-const isLoreModalOpen = ref(false)
-const isConfigModalOpen = ref(false)
 const isQuickModalOpen = ref(false)
 const isImportModalOpen = ref(false)
 const isIncidentModalOpen = ref(false)
@@ -464,14 +516,6 @@ const toggleLeftDrawer = () => {
     isLeftDrawerOpenMobile.value = !isLeftDrawerOpenMobile.value
   } else {
     isLeftDrawerOpen.value = !isLeftDrawerOpen.value
-  }
-}
-
-const closeLeftDrawer = () => {
-  if (window.innerWidth < 1024) {
-    isLeftDrawerOpenMobile.value = false
-  } else {
-    isLeftDrawerOpen.value = false
   }
 }
 
@@ -603,9 +647,9 @@ const handleReset = async () => {
 /* ========================================= */
 .top-nav-bar {
   flex-shrink: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   padding: 0.55rem 1.25rem;
   position: sticky;
   top: 0;
@@ -615,19 +659,34 @@ const handleReset = async () => {
   border-radius: 0 0 16px 16px;
 }
 
-.nav-section-left,
-.nav-section-center,
+.nav-section-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-self: start;
+}
+
+.nav-section-center {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-self: center;
+}
+
 .nav-section-right {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  justify-self: end;
 }
 
 .icon-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.45rem 0.65rem;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
   border: none;
   background: var(--neu-surface);
   color: var(--neu-text-primary);
@@ -637,6 +696,7 @@ const handleReset = async () => {
   font-weight: 500;
   user-select: none;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .icon-action-btn:hover {
@@ -966,6 +1026,16 @@ const handleReset = async () => {
   overflow: hidden;
 }
 
+.center-stream-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  gap: 0.85rem;
+  overflow: hidden;
+}
+
 .stream-top-bar {
   position: relative;
   overflow: hidden;
@@ -975,6 +1045,7 @@ const handleReset = async () => {
   padding: 0.75rem 1.25rem;
   flex-shrink: 0;
   z-index: 10;
+  border-radius: 0;
 }
 
 /* 小说正文切片独立滚动长卷视口 */
@@ -1069,40 +1140,98 @@ const handleReset = async () => {
   line-height: 1.6;
 }
 
-/* C. 右侧常驻看板 (Permanent Right Dashboard) */
+/* C. 右侧常驻看板 / 设置面板 (与文风工坊一致的顶栏固顶结构) */
 .right-drawer-panel {
   width: 380px;
   flex-shrink: 0;
   height: 100%;
+  overflow: hidden; /* 外部面板不滚动，由内部主体独立滚动 */
+  padding: 0; /* 外部无 padding，确保标头一整块固顶贴边 */
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--neu-radius, 14px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.right-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  flex-shrink: 0;
+  z-index: 10;
+  border-bottom: 1px solid var(--neu-border, rgba(255, 255, 255, 0.35));
+  border-radius: 0; /* 上方无 border radius，一整块固定在顶部 */
+  background: var(--neu-surface);
+}
+
+.panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.panel-icon {
+  font-size: 1.25rem;
+  color: var(--neu-accent);
+  flex-shrink: 0;
+}
+
+.panel-heading {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--neu-text-primary);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.panel-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.save-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  background: var(--neu-accent);
+  color: #ffffff;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-flat-sm);
+  flex-shrink: 0;
+}
+
+.save-icon-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hover);
+  background: var(--neu-accent-hover);
+}
+
+.save-icon-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.save-icon {
+  font-size: 1.15rem;
+}
+
+.right-panel-body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.dashboard-header-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0.75rem;
-  border-radius: 10px;
-}
-
-.dashboard-header-title {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--neu-text-primary);
-}
-
-.dashboard-header-right {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 .char-pill {
@@ -1229,6 +1358,10 @@ const handleReset = async () => {
 }
 
 @media (max-width: 1024px) {
+  .top-nav-bar {
+    display: flex;
+    justify-content: space-between;
+  }
   .btn-label-desktop {
     display: none;
   }

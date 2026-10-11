@@ -52,7 +52,7 @@
 # 数据库存储路径 (单容器持久化卷或本地 SQLite)
 DATABASE_URL=sqlite:////data/world_sim.db
 
-# 服务端配置 (LLM Base URL、API Key 与模型名称已移入 Web UI 系统配置面板并持久化存储于 SQLite)
+# 服务端配置 (LLM Base URL、API Key 与模型名称通过 Web UI 系统配置面板设置并持久化存储于 SQLite)
 PORT=8080
 LOG_LEVEL=INFO
 REALTIME_TICK_HOURS=1
@@ -84,7 +84,7 @@ REALTIME_TICK_HOURS=1
 ### Phase 4: 前端新拟态组件与交互实现
 - [x] 初始化 Vite + Vue 3 + Pinia + Tailwind 项目，引入 `@iconify/vue`（指定 `material-symbols`）。
 - [x] 按照 [05_UI_UX_NEUMORPHIC_SPEC.md](05_UI_UX_NEUMORPHIC_SPEC.md) 注入 CSS 变量与双向阴影系统，开发 `NeuCard`、`NeuButton`、`NeuMeter`。
-- [x] 绘制沉浸式小说长卷阅读流与右侧角色状态看板（彻底无文本框与评论区）。
+- [x] 绘制沉浸式小说长卷阅读流与右侧角色状态看板（无文本框与评论区）。
 
 ### Phase 5: 联调、容器化与交付验证
 - [x] 前端打包产物接入 FastAPI 静态托管与 SPA 回退，验证单端口无 404。
