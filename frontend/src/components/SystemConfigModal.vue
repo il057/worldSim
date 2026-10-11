@@ -874,7 +874,7 @@ const handleSave = async () => {
   font-size: 0.725rem;
   font-weight: 600;
   color: var(--neu-accent);
-  background: rgba(94, 114, 228, 0.1);
+  background: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.1);
   padding: 0.15rem 0.5rem;
   border-radius: 6px;
 }

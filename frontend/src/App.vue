@@ -750,24 +750,24 @@ const handleReset = async () => {
 
 .continue-btn {
   background: var(--neu-surface);
-  color: var(--color-primary);
-  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
+  color: var(--neu-accent);
+  border: 1px solid rgba(var(--neu-accent-rgb, 94, 114, 228), 0.25);
 }
 
 .continue-btn:hover:not(:disabled) {
-  background: rgba(var(--color-primary-rgb), 0.08);
-  color: var(--color-primary-hover);
-  border-color: var(--color-primary);
+  background: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.08);
+  color: var(--neu-accent-hover);
+  border-color: var(--neu-accent);
 }
 
 .continue-icon {
-  color: var(--color-primary);
+  color: var(--neu-accent);
 }
 
 .incident-btn {
   background: var(--neu-accent);
   color: #ffffff;
-  box-shadow: 2px 2px 6px rgba(94, 114, 228, 0.4);
+  box-shadow: 2px 2px 6px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.4);
 }
 
 .incident-btn:hover:not(:disabled) {
@@ -891,7 +891,7 @@ const handleReset = async () => {
   left: 0;
   right: 0;
   height: 2.5px;
-  background: rgba(196, 201, 212, 0.25);
+  background: var(--neu-border);
   pointer-events: none;
 }
 
@@ -1079,7 +1079,7 @@ const handleReset = async () => {
 }
 
 .mobile-bottom-btn.continue-accent {
-  color: var(--color-primary);
+  color: var(--neu-accent);
 }
 
 .mobile-bottom-btn.incident-accent {

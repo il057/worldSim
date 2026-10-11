@@ -92,7 +92,7 @@ const fallbackStyle = computed(() => {
 }
 
 .avatar-badge.is-character {
-  box-shadow: 0 0 6px rgba(94, 114, 228, 0.35), 2px 2px 5px var(--neu-dark, #c4c9d4);
+  box-shadow: 0 0 6px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.35), 2px 2px 5px var(--neu-dark, #c4c9d4);
 }
 
 .avatar-img {

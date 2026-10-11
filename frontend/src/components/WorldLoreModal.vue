@@ -643,7 +643,7 @@ const handleDelete = async (id: number) => {
 
 .edit-btn:hover {
   color: var(--neu-accent);
-  background: rgba(94, 114, 228, 0.12);
+  background: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.12);
 }
 
 .delete-btn:hover {

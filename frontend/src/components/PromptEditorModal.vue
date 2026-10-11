@@ -742,12 +742,12 @@ const resetToDefaults = () => {
 }
 
 .style-card:hover {
-  border-color: rgba(79, 70, 229, 0.25);
+  border-color: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.25);
 }
 
 .style-card.active {
   border-color: var(--neu-accent);
-  box-shadow: inset 2px 2px 5px rgba(166, 175, 195, 0.4), inset -2px -2px 5px rgba(255, 255, 255, 0.8);
+  box-shadow: var(--shadow-inset-sm);
 }
 
 .style-card-header {
@@ -913,7 +913,7 @@ const resetToDefaults = () => {
 
 .tier-card.active {
   border-color: var(--neu-accent);
-  box-shadow: inset 2px 2px 5px rgba(166, 175, 195, 0.4), inset -2px -2px 5px rgba(255, 255, 255, 0.8);
+  box-shadow: var(--shadow-inset-sm);
 }
 
 .tier-header {

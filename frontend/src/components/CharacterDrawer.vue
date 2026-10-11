@@ -336,13 +336,13 @@ defineExpose({
 
 /* 快速新建：主操作微光与微渐变 */
 .roster-actions :deep(.roster-btn-quick) {
-  background: linear-gradient(135deg, rgba(94, 114, 228, 0.08) 0%, rgba(94, 114, 228, 0.02) 100%), var(--neu-surface);
-  border: 1px solid rgba(94, 114, 228, 0.22);
+  background: linear-gradient(135deg, rgba(var(--neu-accent-rgb, 94, 114, 228), 0.08) 0%, rgba(var(--neu-accent-rgb, 94, 114, 228), 0.02) 100%), var(--neu-surface);
+  border: 1px solid rgba(var(--neu-accent-rgb, 94, 114, 228), 0.22);
   color: var(--neu-accent);
 }
 
 .roster-actions :deep(.roster-btn-quick:hover:not(.is-disabled)) {
-  border-color: rgba(94, 114, 228, 0.45);
+  border-color: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.45);
   box-shadow: var(--shadow-hover);
 }
 

@@ -678,7 +678,7 @@ const getStaminaColor = (val: number) => {
 }
 
 .expand-persona-btn:hover {
-  background: rgba(79, 70, 229, 0.08);
+  background: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.08);
 }
 
 .expand-persona-btn .btn-icon {
@@ -740,7 +740,7 @@ const getStaminaColor = (val: number) => {
 
 .recent-change-indicator.text-accent {
   color: var(--neu-accent);
-  box-shadow: inset 1px 1px 3px var(--neu-dark), inset -1px -1px 3px var(--neu-light), inset 0 0 3px rgba(94, 114, 228, 0.18);
+  box-shadow: inset 1px 1px 3px var(--neu-dark), inset -1px -1px 3px var(--neu-light), inset 0 0 3px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.18);
 }
 
 .meters-container {
@@ -994,7 +994,7 @@ const getStaminaColor = (val: number) => {
 
 /* 目标新增：立体微凸浮动 + 柔和环境光 */
 .goal-item.is-new-goal {
-  box-shadow: 2px 2px 6px var(--neu-dark), -2px -2px 6px var(--neu-light), inset 0 0 0 1px rgba(94, 114, 228, 0.35);
+  box-shadow: 2px 2px 6px var(--neu-dark), -2px -2px 6px var(--neu-light), inset 0 0 0 1px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.35);
 }
 
 .new-goal-icon {
@@ -1024,7 +1024,7 @@ const getStaminaColor = (val: number) => {
 }
 
 .npc-item.is-updated-card {
-  box-shadow: 3px 3px 8px var(--neu-dark), -3px -3px 8px var(--neu-light), inset 0 0 0 1px rgba(94, 114, 228, 0.3);
+  box-shadow: 3px 3px 8px var(--neu-dark), -3px -3px 8px var(--neu-light), inset 0 0 0 1px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.3);
 }
 
 .npc-item.is-new-card {
@@ -1076,7 +1076,7 @@ const getStaminaColor = (val: number) => {
 
 .npc-state-tag.tag-updated {
   color: var(--neu-accent);
-  box-shadow: 1px 1px 3px var(--neu-dark), -1px -1px 3px var(--neu-light), inset 0 0 3px rgba(94, 114, 228, 0.18);
+  box-shadow: 1px 1px 3px var(--neu-dark), -1px -1px 3px var(--neu-light), inset 0 0 3px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.18);
 }
 
 .state-icon {

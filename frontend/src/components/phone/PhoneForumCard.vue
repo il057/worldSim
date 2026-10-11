@@ -295,7 +295,7 @@ const statsParts = computed(() => {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: rgba(94, 114, 228, 0.12);
+  background: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.12);
   display: flex;
   align-items: center;
   justify-content: center;

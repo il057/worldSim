@@ -336,8 +336,8 @@ const handleSubmit = async () => {
 .highlight-group {
   padding: 0.65rem 0.75rem;
   border-radius: 8px;
-  background: rgba(79, 70, 229, 0.04);
-  border: 1px dashed rgba(79, 70, 229, 0.25);
+  background: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.06);
+  border: 1px dashed rgba(var(--neu-accent-rgb, 94, 114, 228), 0.25);
 }
 
 .neu-input,

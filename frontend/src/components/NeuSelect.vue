@@ -380,7 +380,7 @@ watch(() => props.disabled, (disabled) => {
 }
 
 .option-item:hover {
-  background: rgba(94, 114, 228, 0.08);
+  background: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.08);
   color: var(--neu-accent);
 }
 

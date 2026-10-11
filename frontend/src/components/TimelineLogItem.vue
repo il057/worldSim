@@ -542,9 +542,20 @@ const hasInventoryDelta = computed(() => {
 }
 
 .timeline-log-card.is-streaming {
-  border-left: 4px solid #3b82f6;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+  border-left: 4px solid var(--neu-accent);
+  box-shadow: 0 0 14px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.25);
+  animation: streaming-glow 2s infinite ease-in-out;
 }
+
+@keyframes streaming-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.18);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.35);
+  }
+}
+
 
 .generating-pill {
   display: inline-flex;
@@ -638,7 +649,7 @@ const hasInventoryDelta = computed(() => {
 }
 
 .divine-calling-card.divine-witness-card {
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid var(--neu-accent);
 }
 
 .divine-header {
@@ -705,7 +716,7 @@ const hasInventoryDelta = computed(() => {
   gap: 0.45rem;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(196, 201, 212, 0.4);
+  border-bottom: 1px solid var(--neu-border);
   position: relative;
 }
 

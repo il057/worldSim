@@ -102,7 +102,7 @@ const variantClass = computed(() => {
 .neu-btn-accent {
   background: var(--neu-accent);
   color: #ffffff;
-  box-shadow: 4px 4px 10px rgba(94, 114, 228, 0.35), -4px -4px 10px var(--neu-light);
+  box-shadow: 4px 4px 10px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.35), -4px -4px 10px var(--neu-light);
 }
 .neu-btn-accent:hover:not(.is-disabled) {
   background: var(--neu-accent-hover);
