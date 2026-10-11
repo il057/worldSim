@@ -158,9 +158,14 @@ AI 开发者在实现前端组件时，应当采用组合式 API 与高复用模
 1. **`NeuCard`（新拟态卡片）**：
    - 支持 `raised`（凸起，用于小说正文章节与独立面板）和 `inset`（内凹，用于指标背景与槽位）；
    - 内置平滑的过渡动画，提供悬浮立体微位移。
-2. **`NeuButton`（纯图标与纯按钮）**：
+2. **`NeuButton`（纯图标与纯按钮）及核心推演按键群规范**：
    - 必须强制接收 `material-symbols` 标识作为 Iconify 来源；
-   - 封装加载状态（Loading）与激活状态（Active Inset Shadow）。
+   - 封装加载状态（Loading）与激活状态（Active Inset Shadow）；
+   - **核心沙盒推进按键槽（`stepper-controls neu-inset-sm`）**：
+     * 容器采用物理内凹槽位（`--shadow-inset-sm`），各按钮如同精密仪器按键嵌于槽中；
+     * **常规步进按钮（+1h / +6h / +24h）**：统一采用微凸物理按键（`var(--shadow-flat-sm)` 与 `1px solid var(--neu-border)`），悬停轻微浮起（`-1px` 与 `--shadow-hover`），点击物理下沉（`+0.5px` 与 `--shadow-active`）；
+     * **智能续写按钮（`continue-btn`）**：作为主推进核心，采用光感微弧切面（`linear-gradient` 柔和叠加主题色微光）、物理双向阴影（`--shadow-flat-sm`）、顶部受光倒角高光（`inset 1px 1px 1.5px var(--neu-light)`）与背向暗倒角，悬停伴随主题光晕扩散与图标微倾旋转，彻底告别扁平单线条框；
+     * **突发事件按键（`incident-btn`）**：作为变数干预高能按键，彻底摒弃传统平面贴纸色块与单向暗影。采用 3D 立体微拟态高能材质，受光面由左上平行光源投射出真实顶角高光（`inset 1px 1px 1.5px rgba(255,255,255,0.45)`），右下背光面形成实体倒角厚度暗影（`inset -1px -1px 2px rgba(0,0,0,0.22)`），外部严格继承全局双向阴影公式（`--shadow-flat-sm`）并辅以主题辉光，点击时真实内凹陷入槽中。
 3. **`NeuMeter`（新拟态生理指标槽）**：
    - 采用外凹槽内微凸渐变填充的形式，直观反映健康值（Health）与精力值（Stamina）。
 4. **`TimelineLogItem`（故事切片组件与神性两步楼层交互）**：

@@ -704,12 +704,12 @@ const handleReset = async () => {
   50% { opacity: 1; }
 }
 
-/* 核心推演按钮组 */
+/* 核心推演按钮组 (新拟态内凹槽与高触感物理按键体系) */
 .stepper-controls {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem;
-  gap: 0.25rem;
+  padding: 0.3rem;
+  gap: 0.35rem;
   border-radius: 12px;
 }
 
@@ -717,66 +717,174 @@ const handleReset = async () => {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.4rem 0.75rem;
+  padding: 0.42rem 0.75rem;
   border: none;
   background: var(--neu-surface);
   color: var(--neu-text-primary);
   font-size: 0.825rem;
   font-weight: 600;
-  border-radius: 8px;
+  border-radius: 9px;
   cursor: pointer;
   box-shadow: var(--shadow-flat-sm);
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+  user-select: none;
+  outline: none;
 }
 
 .step-btn:hover:not(:disabled) {
   box-shadow: var(--shadow-hover);
   color: var(--neu-accent);
+  transform: translateY(-1px);
 }
 
 .step-btn:active:not(:disabled) {
   box-shadow: var(--shadow-active);
+  transform: translateY(0.5px);
 }
 
 .step-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+  transform: none !important;
+  box-shadow: var(--shadow-flat-sm) !important;
 }
 
 .btn-symbol {
   font-size: 1.1rem;
 }
 
+/* 智能续写：主推演物理按键，微拟态光感浮雕与微弧切面 */
 .continue-btn {
-  background: var(--neu-surface);
+  background: linear-gradient(
+    135deg,
+    rgba(var(--neu-accent-rgb, 94, 114, 228), 0.12) 0%,
+    rgba(var(--neu-accent-rgb, 94, 114, 228), 0.02) 55%,
+    var(--neu-surface) 100%
+  );
   color: var(--neu-accent);
-  border: 1px solid rgba(var(--neu-accent-rgb, 94, 114, 228), 0.25);
+  border: none;
+  box-shadow:
+    var(--shadow-flat-sm),
+    inset 1px 1px 1.5px var(--neu-light),
+    inset -1px -1px 1.5px rgba(0, 0, 0, 0.04);
+  position: relative;
 }
 
 .continue-btn:hover:not(:disabled) {
-  background: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.08);
+  background: linear-gradient(
+    135deg,
+    rgba(var(--neu-accent-rgb, 94, 114, 228), 0.18) 0%,
+    rgba(var(--neu-accent-rgb, 94, 114, 228), 0.05) 60%,
+    var(--neu-surface) 100%
+  );
   color: var(--neu-accent-hover);
-  border-color: var(--neu-accent);
+  border-color: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.55);
+  box-shadow:
+    var(--shadow-hover),
+    0 0 12px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.22),
+    inset 1px 1px 2px var(--neu-light);
+  transform: translateY(-1.5px);
+}
+
+.continue-btn:active:not(:disabled) {
+  box-shadow:
+    var(--shadow-active),
+    inset 1px 1px 3px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.2);
+  transform: translateY(0.5px);
 }
 
 .continue-icon {
   color: var(--neu-accent);
+  filter: drop-shadow(0 1px 1.5px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.3));
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.continue-btn:hover:not(:disabled) .continue-icon {
+  transform: scale(1.1) rotate(-4deg);
+}
+
+.continue-text {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* 突发事件：变数干预高能按键，立体现拟态光泽与双向光影 */
 .incident-btn {
-  background: var(--neu-accent);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.24) 0%,
+    rgba(255, 255, 255, 0.04) 40%,
+    rgba(0, 0, 0, 0.12) 100%
+  ), var(--neu-accent);
   color: #ffffff;
-  box-shadow: 2px 2px 6px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.4);
+  border: none;
+  box-shadow:
+    var(--shadow-flat-sm),
+    0 2px 8px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.35),
+    inset 1px 1px 1.5px rgba(255, 255, 255, 0.45),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.22);
+  position: relative;
 }
 
 .incident-btn:hover:not(:disabled) {
-  background: var(--neu-accent-hover);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.32) 0%,
+    rgba(255, 255, 255, 0.08) 40%,
+    rgba(0, 0, 0, 0.15) 100%
+  ), var(--neu-accent-hover);
   color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.38);
+  box-shadow:
+    var(--shadow-hover),
+    0 4px 16px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.48),
+    inset 1px 1px 2px rgba(255, 255, 255, 0.55);
+  transform: translateY(-1.5px);
+}
+
+.incident-btn:active:not(:disabled) {
+  box-shadow:
+    var(--shadow-active),
+    inset 2px 2px 5px rgba(0, 0, 0, 0.32),
+    inset -1px -1px 2px rgba(255, 255, 255, 0.15);
+  transform: translateY(0.5px);
 }
 
 .incident-icon {
   color: #ffffff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.incident-btn:hover:not(:disabled) .incident-icon {
+  transform: scale(1.12);
+}
+
+.incident-text {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* 深色模式下的微调 */
+[data-theme="dark"] .continue-btn {
+  background: linear-gradient(
+    135deg,
+    rgba(var(--neu-accent-rgb, 94, 114, 228), 0.16) 0%,
+    rgba(var(--neu-accent-rgb, 94, 114, 228), 0.04) 60%,
+    var(--neu-surface) 100%
+  );
+  border-color: rgba(var(--neu-accent-rgb, 94, 114, 228), 0.36);
+}
+
+[data-theme="dark"] .incident-btn {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow:
+    var(--shadow-flat-sm),
+    0 2px 10px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.45),
+    inset 1px 1px 1.5px rgba(255, 255, 255, 0.3),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .spin-icon {
@@ -1080,10 +1188,28 @@ const handleReset = async () => {
 
 .mobile-bottom-btn.continue-accent {
   color: var(--neu-accent);
+  border-radius: 10px;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--neu-accent-rgb, 94, 114, 228), 0.12) 0%,
+    rgba(var(--neu-accent-rgb, 94, 114, 228), 0.02) 100%
+  ), var(--neu-surface);
+  box-shadow: var(--shadow-flat-sm);
+  border: 1px solid rgba(var(--neu-accent-rgb, 94, 114, 228), 0.25);
 }
 
 .mobile-bottom-btn.incident-accent {
-  color: var(--neu-accent);
+  color: #ffffff;
+  border-radius: 10px;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(0, 0, 0, 0.1) 100%
+  ), var(--neu-accent);
+  box-shadow:
+    var(--shadow-flat-sm),
+    0 2px 8px rgba(var(--neu-accent-rgb, 94, 114, 228), 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .mobile-drawer-backdrop {
