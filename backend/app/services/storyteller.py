@@ -7,6 +7,7 @@ from app.services.llm_client import llm_client, strip_emojis
 from app.services.memory import MemoryService
 from app.services.prompt_library import (
     build_storyteller_system_prompt,
+    STYLE_PRESETS,
     WORD_COUNT_TIERS,
     build_present_npc_storyteller_prompt,
     CONTINUATION_STORYTELLER_PROMPT,
@@ -129,7 +130,7 @@ class StorytellerService:
             f"{npc_presence_block}"
             f"{continuation_block}\n"
             f"【叙事核心法则】: 必须紧扣主角的【当前推进目标】与【人际关系网（尤其是现场角色）】展开具有戏剧推进力的小说正文！若有在场 NPC，重点描写其言语交锋、心理防御与肢体微动作；\n"
-            f"请严格依据设定的文风与规范，生成 {min_words} 至 {max_words} 字的纯净小说正文："
+            f"【文学风格与标杆执行指令】: 本段必须全神贯注贯彻【{STYLE_PRESETS.get(style_key, STYLE_PRESETS['free'])['name']}】文学风格（文学标杆：{STYLE_PRESETS.get(style_key, STYLE_PRESETS['free']).get('author_reference', '严肃文学小说')}），彻底抛弃千篇一律的平庸通用 AI 腔调，严格遵从该流派的句式节律、词汇冷暖与行文神韵下笔，生成 {min_words} 至 {max_words} 字的纯净小说正文："
         )
 
         try:
