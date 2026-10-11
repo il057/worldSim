@@ -158,7 +158,7 @@ class LLMClient:
         timeout_config = httpx.Timeout(timeout=300.0, connect=60.0, read=300.0, write=120.0, pool=60.0)
         limits_config = httpx.Limits(max_keepalive_connections=5, max_connections=10, keepalive_expiry=60.0)
 
-        max_retries = 3
+        max_retries = 4
         for attempt in range(max_retries):
             has_received_data = False
             content_parts: List[str] = []
@@ -182,6 +182,13 @@ class LLMClient:
                                 raise LLMClientError("RATE_LIMIT_OR_QUOTA", "API 额度耗尽或请求频次超限", status_code=res.status_code, raw_error=err_body)
                             elif res.status_code == 404:
                                 raise LLMClientError("MODEL_NOT_FOUND", "未找到指定模型或 Base URL 路径错误", status_code=res.status_code, raw_error=err_body)
+                            elif res.status_code in (502, 503, 504) and attempt < max_retries - 1:
+                                wait_time = (attempt + 1) * 2.0
+                                logger.warning(
+                                    f"[LLM 客户端] 遇到服务端/网关暂态异常 (HTTP {res.status_code})，正在自动重试 ({attempt + 1}/{max_retries})，等待 {wait_time}s..."
+                                )
+                                await asyncio.sleep(wait_time)
+                                continue
                             else:
                                 raise LLMClientError("API_CALL_FAILED", f"API 调用异常 (HTTP {res.status_code})", status_code=res.status_code, raw_error=err_body)
 
@@ -210,6 +217,13 @@ class LLMClient:
                                 raise LLMClientError("RATE_LIMIT_OR_QUOTA", "API 额度耗尽或请求频次超限", status_code=res.status_code, raw_error=err_body)
                             elif res.status_code == 404:
                                 raise LLMClientError("MODEL_NOT_FOUND", "未找到指定模型或 Base URL 路径错误", status_code=res.status_code, raw_error=err_body)
+                            elif res.status_code in (502, 503, 504) and attempt < max_retries - 1:
+                                wait_time = (attempt + 1) * 2.0
+                                logger.warning(
+                                    f"[LLM 客户端] 遇到服务端/网关暂态异常 (HTTP {res.status_code})，正在自动重试 ({attempt + 1}/{max_retries})，等待 {wait_time}s..."
+                                )
+                                await asyncio.sleep(wait_time)
+                                continue
                             else:
                                 raise LLMClientError("API_CALL_FAILED", f"API 调用异常 (HTTP {res.status_code})", status_code=res.status_code, raw_error=err_body)
 

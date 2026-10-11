@@ -724,11 +724,13 @@ class IngestionService:
             "   - 拒绝千篇一律的完美圣人，但角色的弱点应是富有人情味的小毛病、个性反差或处事短板（如爱逞强、好面子、嘴硬心软、做事三分钟热度、贪吃嗜睡、爱恶作剧但偶有翻车、对特定事物毫无抵抗力等）。\n"
             "   - 严禁强加精神病理学层面的阴暗病态心理或神经质防御机制。\n"
             "   - 外貌 (appearance) 包含身型、五官特色、发型与典型穿着风格，贴合该世界的设定画风（80~150字）。\n\n"
-            "4. 人际网络与 NPC 关系（自适应张力，矛盾不等于死仇）：\n"
+            "4. 人际网络与 NPC 关系（所有登场 NPC 平等深度双轨描写铁律）：\n"
             "   - 现实微型社交网络中的关系应当丰富多维，涵盖支持者、羁绊对象、观念不同者与竞争者，好感度 (affinity) 在 -100 到 100 之间浮动。\n"
             "   - 负好感或对立关系源于立场分歧、性格不对付、日常争辩、行事风格差异或利益较劲，绝非所有冲突都是血海深仇或背叛追杀。\n"
             "   - 必须生成 2~4 位与主角有直接交集的初始 NPC（若用户指定了 NPC，优先精准提取并丰富；未指定则按世界观基调原创）。\n"
-            "   - 渊源简述 (summary) 具体交代生动有趣的前因后果与相处纠葛（30~80字）。\n\n"
+            "   - 每一个 NPC 必须遵循规范的【双轨深度结构】：\n"
+            "     * background (客观身份背景): 客观交代该人物在世界中的真实社会身份/职业/核心能力特征与性格底色（60~120字，严禁写‘本卡主要角色’等元标签）；\n"
+            "     * attitude (对该角色的态度与羁绊): 深入写明当前主角对其的真实主观态度、评价、好感成因、互动习惯或过往恩怨纠葛（40~80字，严禁敷衍）。\n\n"
             "5. 世界书条目 (lores) 提取与构建：\n"
             "   - 从用户引导与世界背景中提炼 1~3 条核心设定条目（如社会组织规则、阵营势力格局、行业与能力法则、风土人情或特定戒律），使推演世界具有背景厚度与代入感。\n"
             "   - 每条世界书包含：title, category ('static'|'dynamic'), trigger_keys, content (100~200字详实说明)。\n\n"
@@ -760,7 +762,8 @@ class IngestionService:
             '      "npc_name": "NPC姓名",\n'
             '      "relation_type": "关系类型（如搭档/同行者/竞争对手/导师/长辈等）",\n'
             '      "affinity": 50,\n'
-            '      "summary": "与主角关系的具体因果背景"\n'
+            '      "background": "NPC在世界中的客观身份背景、核心能力与性格底色（60~120字）",\n'
+            '      "attitude": "当前主角对该角色的专属主观态度、评价、好感成因与相处羁绊（40~80字）"\n'
             "    }\n"
             "  ],\n"
             '  "lores": [\n'
@@ -824,18 +827,47 @@ class IngestionService:
             "sleep_trigger_summary": "身心俱疲时自然陷入休眠",
         }
 
-        # 关系列表清洗
+        # 关系列表清洗与双轨深度对齐保底（确保客观身份画像 + 对该角色的态度与羁绊规范统一）
         raw_rels = data.get("relationships") or []
         cleaned_relationships = []
         for r in raw_rels:
             npc_name = strip_emojis(r.get("npc_name", "")).strip()
             if not npc_name:
                 continue
+            rel_type = strip_emojis(r.get("relation_type", "同行者"))
+            aff = max(-100, min(100, int(r.get("affinity", 50))))
+            bg = strip_emojis(r.get("background", "")).strip()
+            att = strip_emojis(r.get("attitude", "")).strip()
+            raw_s = strip_emojis(r.get("summary", "")).strip()
+
+            if bg and att:
+                final_summary = f"{bg}\n\n【对该角色的态度与羁绊】：{att}"
+            elif raw_s:
+                if "【对该角色的态度与羁绊】" in raw_s:
+                    final_summary = raw_s
+                elif "【态度与羁绊】" in raw_s:
+                    final_summary = raw_s.replace("【态度与羁绊】", "【对该角色的态度与羁绊】")
+                elif "【态度】" in raw_s:
+                    final_summary = raw_s.replace("【态度】", "【对该角色的态度与羁绊】")
+                elif "【羁绊与态度】" in raw_s:
+                    final_summary = raw_s.replace("【羁绊与态度】", "【对该角色的态度与羁绊】")
+                else:
+                    if att:
+                        final_summary = f"{raw_s}\n\n【对该角色的态度与羁绊】：{att}"
+                    else:
+                        final_summary = f"{raw_s}\n\n【对该角色的态度与羁绊】：与主角处于【{rel_type}】关系（初始好感 {aff}），在日常交往与局势变迁中维系着交集。"
+            elif bg:
+                final_summary = f"{bg}\n\n【对该角色的态度与羁绊】：与主角处于【{rel_type}】关系（初始好感 {aff}），在日常交往与局势变迁中维系着交集。"
+            elif att:
+                final_summary = f"世界中的已知关联人物，维持着日常社交往来。\n\n【对该角色的态度与羁绊】：{att}"
+            else:
+                final_summary = f"世界中的已知关联人物，维持着常规的社交往来。\n\n【对该角色的态度与羁绊】：同行同伴，在动荡的世界中共处并维系着深层羁绊。"
+
             cleaned_relationships.append({
                 "npc_name": npc_name,
-                "relation_type": strip_emojis(r.get("relation_type", "同行者")),
-                "affinity": max(-100, min(100, int(r.get("affinity", 50)))),
-                "summary": strip_emojis(r.get("summary", "")),
+                "relation_type": rel_type,
+                "affinity": aff,
+                "summary": final_summary,
             })
 
         # 世界书清洗

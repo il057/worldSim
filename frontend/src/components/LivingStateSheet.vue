@@ -479,6 +479,20 @@ function parseNpcSummary(summary: string | undefined): { background: string; att
       attitude: matchAlt.slice(1).join('【态度与羁绊】：').trim(),
     }
   }
+  const matchAtt = raw.split(/【态度】[：:]?\s*/)
+  if (matchAtt.length >= 2) {
+    return {
+      background: matchAtt[0].trim(),
+      attitude: matchAtt.slice(1).join('【态度】：').trim(),
+    }
+  }
+  const matchBond = raw.split(/【羁绊与态度】[：:]?\s*/)
+  if (matchBond.length >= 2) {
+    return {
+      background: matchBond[0].trim(),
+      attitude: matchBond.slice(1).join('【羁绊与态度】：').trim(),
+    }
+  }
   return {
     background: raw,
     attitude: '',

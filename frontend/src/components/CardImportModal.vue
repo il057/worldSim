@@ -1,12 +1,12 @@
 <template>
-  <div v-if="isOpen" class="modal-backdrop" @click.self="$emit('close')">
+  <div v-if="isOpen" class="modal-backdrop" @click.self="handleClose">
     <NeuCard class="modal-card" variant="flat">
       <div class="modal-header">
         <div class="header-title">
           <Icon :icon="initialParseData ? 'material-symbols:auto-awesome' : 'material-symbols:upload-file'" class="title-icon" />
           <h3>{{ initialParseData ? '角色推演蓝图全量微调与审查' : '酒馆角色卡摄入与全量设定微调' }}</h3>
         </div>
-        <button class="close-btn" @click="$emit('close')">
+        <button class="close-btn" @click="handleClose">
           <Icon icon="material-symbols:close" />
         </button>
       </div>
@@ -30,6 +30,7 @@
             支持多人卡自动识别；若上传角色卡图片，将自动提取内嵌数据并保留头像
           </span>
           <input
+            ref="fileInputRef"
             type="file"
             accept=".json,.png,image/png"
             class="hidden-file-input"
@@ -430,14 +431,34 @@
                 </button>
               </div>
 
-              <div class="form-field">
-                <label>身份背景与对主角态度</label>
-                <textarea
-                  v-model="npc.summary"
-                  class="neu-input npc-summary-textarea"
-                  rows="3"
-                  placeholder="NPC 身份特征、能力性格特质及与当前主角的羁绊关系与态度"
-                ></textarea>
+              <!-- 双轨深度人际结构：客观背景画像 + 对该角色的态度与羁绊 -->
+              <div class="npc-dual-track-row">
+                <div class="form-field">
+                  <label class="field-label-with-icon">
+                    <Icon icon="material-symbols:badge" class="label-mini-icon" />
+                    人物客观身份背景与核心特质
+                  </label>
+                  <textarea
+                    :value="getNpcBackground(npc)"
+                    @input="updateNpcBackground(npc, ($event.target as HTMLTextAreaElement).value)"
+                    class="neu-input npc-summary-textarea"
+                    rows="2"
+                    placeholder="NPC 客观社会身份、职业定位、核心能力与性格底色..."
+                  ></textarea>
+                </div>
+                <div class="form-field attitude-field">
+                  <label class="field-label-with-icon accent">
+                    <Icon icon="material-symbols:handshake" class="label-mini-icon" />
+                    对该角色的态度与羁绊
+                  </label>
+                  <textarea
+                    :value="getNpcAttitude(npc)"
+                    @input="updateNpcAttitude(npc, ($event.target as HTMLTextAreaElement).value)"
+                    class="neu-input npc-summary-textarea attitude-textarea"
+                    rows="2"
+                    placeholder="当前主角对该角色的专属主观态度、评价、好感成因与相处羁绊..."
+                  ></textarea>
+                </div>
               </div>
             </div>
           </div>
@@ -580,6 +601,7 @@ const isImporting = ref(false)
 const parsedData = ref<CardParseResponse | null>(null)
 const currentEntityId = ref<string>('')
 const activeTab = ref<'persona' | 'vitals' | 'relationships' | 'lores'>('persona')
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 // 可编辑的数据副本
 const editableEntities = ref<DetectedEntity[]>([])
@@ -627,6 +649,8 @@ watch(
   (open) => {
     if (open && props.initialParseData) {
       applyParseData(props.initialParseData)
+    } else if (!open) {
+      clearState()
     }
   }
 )
@@ -719,6 +743,42 @@ const removeGoal = (index: number) => {
   }
 }
 
+const getNpcBackground = (npc: DetectedRelationship): string => {
+  const raw = (npc.summary || '').trim()
+  const match = raw.split(/【对该角色的态度与羁绊】[：:]?\s*/)
+  if (match.length >= 2) return match[0].trim()
+  const matchAlt = raw.split(/【态度与羁绊】[：:]?\s*|【态度】[：:]?\s*|【羁绊与态度】[：:]?\s*/)
+  if (matchAlt.length >= 2) return matchAlt[0].trim()
+  return raw
+}
+
+const getNpcAttitude = (npc: DetectedRelationship): string => {
+  const raw = (npc.summary || '').trim()
+  const match = raw.split(/【对该角色的态度与羁绊】[：:]?\s*/)
+  if (match.length >= 2) return match.slice(1).join('【对该角色的态度与羁绊】：').trim()
+  const matchAlt = raw.split(/【态度与羁绊】[：:]?\s*|【态度】[：:]?\s*|【羁绊与态度】[：:]?\s*/)
+  if (matchAlt.length >= 2) return matchAlt.slice(1).join('').trim()
+  return ''
+}
+
+const updateNpcBackground = (npc: DetectedRelationship, newBg: string) => {
+  const att = getNpcAttitude(npc)
+  if (att) {
+    npc.summary = `${newBg.trim()}\n\n【对该角色的态度与羁绊】：${att}`
+  } else {
+    npc.summary = newBg.trim()
+  }
+}
+
+const updateNpcAttitude = (npc: DetectedRelationship, newAtt: string) => {
+  const bg = getNpcBackground(npc)
+  if (newAtt.trim()) {
+    npc.summary = `${bg.trim()}\n\n【对该角色的态度与羁绊】：${newAtt.trim()}`
+  } else {
+    npc.summary = bg.trim()
+  }
+}
+
 const addNpc = () => {
   if (!activeEntity.value) return
   if (!activeEntity.value.relationships) {
@@ -728,7 +788,7 @@ const addNpc = () => {
     npc_name: '新人物',
     relation_type: '同行者',
     affinity: 50,
-    summary: '与主角有所交集的关键角色。',
+    summary: '世界中的已知关联人物，在日常生活中保持着交集。\n\n【对该角色的态度与羁绊】：初识不久，维持着基本的同伴礼节与互助往来。',
   }
   activeEntity.value.relationships.unshift(newNpc)
 }
@@ -757,6 +817,16 @@ const clearState = () => {
   editableEntities.value = []
   editableLores.value = []
   currentEntityId.value = ''
+  newItemInput.value = ''
+  newGoalInput.value = ''
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+  }
+}
+
+const handleClose = () => {
+  clearState()
+  emit('close')
 }
 
 const handleBackOrReset = () => {
@@ -798,6 +868,10 @@ const handleImport = async () => {
     isImporting.value = false
   }
 }
+
+defineExpose({
+  clearState,
+})
 </script>
 
 <style scoped>
@@ -1423,6 +1497,33 @@ const handleImport = async () => {
   resize: vertical;
   line-height: 1.45;
   font-size: 0.8rem;
+}
+
+.npc-dual-track-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.field-label-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--neu-text-primary);
+}
+
+.field-label-with-icon.accent {
+  color: var(--neu-accent);
+}
+
+.label-mini-icon {
+  font-size: 0.95rem;
+}
+
+.attitude-textarea {
+  border-left: 3px solid var(--neu-accent);
 }
 
 .lore-header-row {

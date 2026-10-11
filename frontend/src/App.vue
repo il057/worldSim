@@ -182,8 +182,8 @@
           @select-character="handleSelectCharacter"
           @delete-character="handleDeleteCharacter"
           @select-tick="scrollToTick"
-          @open-quick="isQuickModalOpen = true"
-          @open-import="isImportModalOpen = true"
+          @open-quick="handleOpenQuick"
+          @open-import="handleOpenImport"
         />
       </aside>
 
@@ -400,12 +400,14 @@
 
     <!-- 角色新建与导入弹窗 -->
     <QuickCharacterModal
+      ref="quickCharacterModalRef"
       :is-open="isQuickModalOpen"
       @close="isQuickModalOpen = false"
       @blueprint="handleQuickBlueprint"
     />
 
     <CardImportModal
+      ref="cardImportModalRef"
       :is-open="isImportModalOpen"
       :initial-parse-data="quickBlueprintData"
       @close="handleImportModalClose"
@@ -483,6 +485,19 @@ const isQuickModalOpen = ref(false)
 const isImportModalOpen = ref(false)
 const isIncidentModalOpen = ref(false)
 const quickBlueprintData = ref<CardParseResponse | null>(null)
+const quickCharacterModalRef = ref<any>(null)
+const cardImportModalRef = ref<any>(null)
+
+const handleOpenQuick = () => {
+  quickCharacterModalRef.value?.resetForm()
+  isQuickModalOpen.value = true
+}
+
+const handleOpenImport = () => {
+  quickBlueprintData.value = null
+  cardImportModalRef.value?.clearState()
+  isImportModalOpen.value = true
+}
 
 const handleQuickBlueprint = (blueprint: CardParseResponse) => {
   isQuickModalOpen.value = false
@@ -493,6 +508,7 @@ const handleQuickBlueprint = (blueprint: CardParseResponse) => {
 const handleImportModalClose = () => {
   isImportModalOpen.value = false
   quickBlueprintData.value = null
+  cardImportModalRef.value?.clearState()
 }
 
 const handleBackToQuick = () => {
@@ -596,6 +612,8 @@ const handleCharacterCreated = async (characterId: string) => {
   isQuickModalOpen.value = false
   isImportModalOpen.value = false
   quickBlueprintData.value = null
+  quickCharacterModalRef.value?.resetForm()
+  cardImportModalRef.value?.clearState()
   await worldStore.initialize()
   await worldStore.selectCharacter(characterId)
 }

@@ -99,7 +99,7 @@
               <Icon icon="material-symbols:hub" class="label-icon accent" />
               世界观与社交网络指引 (AI 智能解析 NPC 与世界书)
             </label>
-            <span class="field-hint">核心推荐: 提及的角色将自动生成为关系网 NPC，提及的环境将提炼为世界书</span>
+            <span class="field-hint">核心推荐: 提及的角色将自动生成为双轨关系网 NPC（含客观背景与专属态度羁绊），提及的环境将提炼为世界书</span>
           </div>
           <textarea
             v-model="form.world_guidance"
@@ -123,6 +123,12 @@
         </div>
 
         <div class="modal-actions">
+          <NeuButton
+            type="button"
+            icon="material-symbols:restart-alt"
+            label="清空"
+            @click="resetForm"
+          />
           <NeuButton
             type="button"
             icon="material-symbols:cancel"
@@ -202,6 +208,21 @@ const handleSubmit = async () => {
     isSubmitting.value = false
   }
 }
+
+const resetForm = () => {
+  form.name = ''
+  form.gender = ''
+  form.birthday = ''
+  form.role = ''
+  form.appearance = ''
+  form.archetype = ''
+  form.world_guidance = ''
+  form.initial_situation = ''
+}
+
+defineExpose({
+  resetForm,
+})
 </script>
 
 <style scoped>

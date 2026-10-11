@@ -75,12 +75,17 @@ def _apply_tick_delta(db: Session, character: Character, state: CharacterState, 
                 CharacterRelationship.npc_name == name_clean,
             ).first()
             if not existing_npc:
+                raw_sum = (n_item.summary or "").strip()
+                if raw_sum and "【对该角色的态度与羁绊】" not in raw_sum and "【态度】" not in raw_sum:
+                    final_sum = f"{raw_sum}\n\n【对该角色的态度与羁绊】：新结识的关键角色，在当前变局中留下了深刻的相处印象。"
+                else:
+                    final_sum = raw_sum
                 new_rel = CharacterRelationship(
                     character_id=character.id,
                     npc_name=name_clean,
                     relation_type=n_item.relation_type or "新结识",
-                    affinity=max(0, min(100, n_item.affinity)),
-                    summary=n_item.summary or "",
+                    affinity=max(-100, min(100, n_item.affinity)),
+                    summary=final_sum,
                     is_present=1 if n_item.is_present else 0,
                 )
                 db.add(new_rel)
@@ -88,7 +93,12 @@ def _apply_tick_delta(db: Session, character: Character, state: CharacterState, 
             else:
                 existing_npc.is_present = 1 if n_item.is_present else 0
                 if n_item.summary:
-                    existing_npc.summary = n_item.summary
+                    new_s = n_item.summary.strip()
+                    parts = re.split(r"【对该角色的态度与羁绊】[：:]?\s*", existing_npc.summary or "")
+                    if len(parts) >= 2 and "【对该角色的态度与羁绊】" not in new_s and "【态度】" not in new_s:
+                        existing_npc.summary = f"{parts[0].strip()}\n\n【对该角色的态度与羁绊】：{new_s}"
+                    else:
+                        existing_npc.summary = new_s
 
         # 2. 更新已有 NPC 的好感、状态与在场
         for u_item in delta.relationship_delta.updated_npcs:
@@ -100,10 +110,15 @@ def _apply_tick_delta(db: Session, character: Character, state: CharacterState, 
                 CharacterRelationship.npc_name == name_clean,
             ).first()
             if existing_npc:
-                existing_npc.affinity = max(0, min(100, u_item.affinity))
+                existing_npc.affinity = max(-100, min(100, u_item.affinity))
                 existing_npc.is_present = 1 if u_item.is_present else 0
                 if u_item.summary:
-                    existing_npc.summary = u_item.summary
+                    new_s = u_item.summary.strip()
+                    parts = re.split(r"【对该角色的态度与羁绊】[：:]?\s*", existing_npc.summary or "")
+                    if len(parts) >= 2 and "【对该角色的态度与羁绊】" not in new_s and "【态度】" not in new_s:
+                        existing_npc.summary = f"{parts[0].strip()}\n\n【对该角色的态度与羁绊】：{new_s}"
+                    else:
+                        existing_npc.summary = new_s
                 if u_item.relation_type:
                     existing_npc.relation_type = u_item.relation_type
 

@@ -186,7 +186,7 @@ class ArbitratorService:
             ],
             json_mode=True,
             temperature=0.3,
-            stream=False,
+            stream=True,
         )
 
         try:
