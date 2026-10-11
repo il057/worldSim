@@ -1003,7 +1003,7 @@ const handleReset = async () => {
   width: 310px;
   flex-shrink: 0;
   height: 100%;
-  overflow-y: auto;
+  overflow: hidden; /* 外部面板不滚动，由内部列表自适应独立滚动，彻底防止外层出现双重滚动条 */
   padding: 1rem;
   display: flex;
   flex-direction: column;
@@ -1254,6 +1254,7 @@ const handleReset = async () => {
   align-items: center;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid rgba(196, 201, 212, 0.3);
+  flex-shrink: 0;
 }
 
 .drawer-header-title {

@@ -63,14 +63,14 @@
         <NeuButton
           class="roster-action-btn roster-btn-quick"
           icon="material-symbols:auto-awesome"
-          label="快速新建"
+          label="新建"
           variant="primary"
           @click="$emit('open-quick')"
         />
         <NeuButton
           class="roster-action-btn roster-btn-import"
           icon="material-symbols:upload-file"
-          label="导入酒馆卡"
+          label="导入"
           variant="normal"
           @click="$emit('open-import')"
         />
@@ -194,6 +194,9 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 头部标签页内凹分段槽 */
@@ -204,6 +207,7 @@ defineExpose({
   background: var(--neu-surface);
   box-shadow: var(--shadow-inset-sm);
   border-radius: 12px;
+  flex-shrink: 0;
 }
 
 .tab-btn {
@@ -242,6 +246,9 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .view-header {
@@ -249,6 +256,7 @@ defineExpose({
   justify-content: space-between;
   align-items: baseline;
   padding: 0 0.25rem;
+  flex-shrink: 0;
 }
 
 .view-title {
@@ -266,7 +274,8 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  max-height: calc(100vh - 220px);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 0.25rem;
 }
@@ -320,6 +329,7 @@ defineExpose({
   gap: 0.6rem;
   width: 100%;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .roster-actions :deep(.neu-btn),
@@ -334,10 +344,9 @@ defineExpose({
   box-sizing: border-box;
 }
 
-/* 快速新建：主操作微光与微渐变 */
+/* 新建：主操作微光与微渐变 */
 .roster-actions :deep(.roster-btn-quick) {
   background: linear-gradient(135deg, rgba(var(--neu-accent-rgb, 94, 114, 228), 0.08) 0%, rgba(var(--neu-accent-rgb, 94, 114, 228), 0.02) 100%), var(--neu-surface);
-  border: 1px solid rgba(var(--neu-accent-rgb, 94, 114, 228), 0.22);
   color: var(--neu-accent);
 }
 
@@ -346,10 +355,9 @@ defineExpose({
   box-shadow: var(--shadow-hover);
 }
 
-/* 导入酒馆卡：次操作高亮边框与干净触感 */
+/* 导入：次操作高亮边框与干净触感 */
 .roster-actions :deep(.roster-btn-import) {
   background: var(--neu-surface);
-  border: 1px solid rgba(255, 255, 255, 0.65);
   color: var(--neu-text-primary);
 }
 
@@ -362,7 +370,8 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  max-height: calc(100vh - 240px);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 0.25rem;
 }
