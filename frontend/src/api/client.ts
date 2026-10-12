@@ -17,6 +17,7 @@ export interface CharacterStateView {
   character_id: string
   virtual_time: string
   location: string
+  residence?: string
   health: number
   stamina: number
   is_sleeping: number
@@ -32,6 +33,7 @@ export interface ArbitratorDelta {
   simulated_hours_passed: number
   new_virtual_time: string
   new_location: string
+  new_residence?: string
   rest_decision: {
     is_sleeping: boolean
     sleep_quality: string
@@ -88,6 +90,9 @@ export interface CharacterRelationshipView {
   affinity: number
   summary: string
   is_present: number
+  residence_location?: string
+  last_interacted_virtual_time?: string
+  is_archived?: number
 }
 
 export interface CharacterDetailView {
@@ -109,6 +114,7 @@ export interface DetectedRelationship {
   relation_type: string
   affinity: number
   summary: string
+  residence_location?: string
 }
 
 export interface DetectedEntity {
@@ -125,6 +131,7 @@ export interface DetectedEntity {
   relationships_with_others?: string
   relationships?: DetectedRelationship[]
   initial_location?: string
+  initial_residence?: string
   initial_virtual_time?: string
   initial_health?: number
   initial_stamina?: number
@@ -159,6 +166,7 @@ export interface QuickCharacterPayload {
   archetype?: string
   world_guidance?: string
   initial_situation?: string
+  initial_residence?: string
 }
 
 export interface StepTickResponse {
@@ -354,6 +362,7 @@ export const apiClient = {
     lores: WorldLoreInput[]
     relationships?: DetectedRelationship[]
     initial_location?: string
+    initial_residence?: string
     initial_virtual_time?: string
     initial_health?: number
     initial_stamina?: number

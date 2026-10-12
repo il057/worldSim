@@ -303,7 +303,7 @@ class IngestionService:
             "   - 【必须保留“写作风格指导”类条目】：特别注意！若原世界书中包含“写作风格指导”、“文学语调或语言风格”、“叙事视角与描写规范”等创作准则，必须予以保留并深度重写理顺，将其 category 设为 'static'，trigger_keys 必须为空字符串 ''！\n"
             "   - 【世界法则分类严格区隔】：\n"
             "     - category 为 'static'（静态常驻）：用于全域世界观法则、物理/魔法底层定理、大时代背景、写作风格指导。静态常驻条目的 trigger_keys 必须为空字符串 ''！严禁填写触发词！\n"
-            "     - category 为 'dynamic'（动态关键词触发）：用于特定微观地点、特定阵营组织、专属神器道具、特定机密或支线事件。动态触发条目的 trigger_keys 必须填写 1~5 个逗号分隔的精确触发关键词（如：'黑天鹅公馆, 钟楼'）！\n"
+            "     - category 为 'dynamic'（动态关键词触发）：用于特定微观地点、特定阵营组织、专属道具装备、特定机密或支线事件。动态触发条目的 trigger_keys 必须填写 1~5 个逗号分隔的精确触发关键词（如该设定条目所针对的具体地点名、势力名或关键事物名）！\n"
             "   - 【彻底替换与解耦 {{user}}】：在重写世界法则正文时，将涉及原玩家/user 的设定，彻底转写为对替代 user 的具象化 NPC 的羁绊或客观背景代词，绝不能保留任何 {{user}} 标签！\n"
             "   - 剔除纯酒馆前端状态栏、回复格式宏、代码块指令、系统提示或越狱条目（无需在 kept_lores 中列出被剔除的条目）。\n\n"
             "严格以 JSON 对象输出，包含以下结构：\n"
@@ -323,7 +323,7 @@ class IngestionService:
             '      "name": "角色姓名",\n'
             '      "role": "角色的精准身份称号或头衔",\n'
             '      "gender": "生理/社会性别 (男 | 女 | 其他/非二元 | 无性别/未知)",\n'
-            '      "birthday": "诞生时间/生日 (例如: 2007年3月15日 或 天禧二年五月初三)",\n'
+            '      "birthday": "诞生时间/生日（结合具体世界观体系，输出确切时间，如公历\'2007年3月15日\'或原设架空历法/生辰）",\n'
             '      "appearance": "外貌体征与服饰细节 (身高、体型、发色瞳色、标志性装束等)",\n'
             '      "persona_summary": "深入且完整地刻画该实体的性格特质、处事哲学、行事准则与深层背景（不设字数上限，严禁人为截断；绝不重复写性别/生日/外貌；已彻底解耦 {{user}}，转为对替代 NPC 的羁绊）",\n'
             '      "inner_drive": "核心内在驱动力或长期追求（深入刻画，不限字数。必须紧扣原卡片的基调与人物抱负，拒绝套路化地归结为童年创伤、被遗弃恐惧或精神病理性动机；它可以是理想抱负、责任信念、对某人的守护与承诺、探索未知的热忱、或生活志向）",\n'
@@ -332,7 +332,8 @@ class IngestionService:
             '      "environment_tolerance": "休眠环境耐受度与要求",\n'
             '      "sleep_trigger_summary": "作息驱动与休眠逻辑简述",\n'
             '      "initial_location": "开局微观具体场景位置",\n'
-            '      "initial_virtual_time": "开局虚拟时间。必须包含确切的具体年、月、日、时:分（例如：\'2024年10月9日 20:15\' 或 \'天禧三年十月初九日 20:15\'）",\n'
+            '      "initial_residence": "角色开局阶段的常驻住所/归宿据点/安全大本营（根据角色在世界中的身份与生活环境提炼，如常驻的居所、公寓、基地、宅院、宗门洞府等；若角色居无定所/流浪漂泊，填写为\'四海漂泊/无固定居所\'）",\n'
+            '      "initial_virtual_time": "开局虚拟时间。必须完全契合卡片原设的世界观纪年体系（现代/未来/泛用背景使用公历标准格式如\'2026年10月9日 20:15\'；架空/古风背景使用原设专属历法纪年），必须包含具体年、月、日、时:分",\n'
             '      "initial_health": 100,\n'
             '      "initial_stamina": 90,\n'
             '      "initial_psychological_state": "即时心理情绪",\n'
@@ -343,6 +344,7 @@ class IngestionService:
             '          "npc_name": "与当前实体有直接联系的NPC姓名（包含其他主要角色、核心世界书NPC、替代user的NPC）",\n'
             '          "relation_type": "当前实体视角下的专属社会关系类型",\n'
             '          "affinity": 50,  // 当前实体对该 NPC 的初始好感度 (-100 到 100，支持且允许负数表示对立/戒备/厌恶)\n'
+            '          "residence_location": "该 NPC 的常驻物理据点、固定居所或流动状态（根据其职业身份与处境合理设定；若行踪飘忽则填写为\'居无定所/行踪不定\'）",\n'
             '          "summary": "当前主视角实体对该 NPC 的专属态度、看法、好感成因与互动纠葛（精炼深刻，50~100字，写明具体相处态度与过往羁绊，严禁单句‘嫌弃对方’敷衍；客观身份生平画像将由系统统一融合，无需在此重复抄写生平，严禁‘本卡主角’等元描述）"\n'
             "        }\n"
             "      ]\n"
@@ -438,13 +440,14 @@ class IngestionService:
                 "birthday": "",
                 "appearance": "",
                 "persona_summary": full_persona_text,
-                "inner_drive": "探寻自身与旧势力的羁绊真相，并在动荡危机中维持生存与秩序。",
+                "inner_drive": "在当下的世界中探索前行，追寻属于自己的道路与答案。",
                 "chronotype": "昼夜无律型",
                 "typical_rest_window": "01:00 - 08:00",
                 "environment_tolerance": "隐蔽安全居所",
                 "sleep_trigger_summary": "依现场危险程度与生理消耗动态休眠",
-                "initial_location": "长宁市古董街老宅正堂",
-                "initial_virtual_time": "2024年10月9日 08:00",
+                "initial_location": cleaned_scen or "开局场景",
+                "initial_residence": "常驻居所",
+                "initial_virtual_time": "2026年10月9日 08:00",
                 "initial_health": 100,
                 "initial_stamina": 90,
                 "initial_psychological_state": "警惕且冷静",
@@ -485,10 +488,10 @@ class IngestionService:
             raw_time_str = str(e.get("initial_virtual_time") or "").strip()
             # 校验是否具备日号与时分
             if not re.search(r"\d{1,2}:\d{2}", raw_time_str):
-                norm_time = "2024年10月9日 20:00"
+                norm_time = "2026年10月9日 20:00"
             elif not re.search(r"\d{1,2}日", raw_time_str) and not re.search(r"[初|十|廿|卅][一|二|三|四|五|六|七|八|九|十]", raw_time_str):
                 tf = re.search(r"(\d{1,2}:\d{2})", raw_time_str).group(1)
-                norm_time = f"2024年10月9日 {tf}"
+                norm_time = f"2026年10月9日 {tf}"
             else:
                 norm_time = raw_time_str
 
@@ -509,6 +512,7 @@ class IngestionService:
                                 relation_type=r.get("relation_type", "关联者"),
                                 affinity=max(-100, min(100, int(r.get("affinity", 50)))),
                                 summary=r_summary,
+                                residence_location=str(r.get("residence_location") or "").strip(),
                             )
                         )
 
@@ -526,7 +530,8 @@ class IngestionService:
                     circadian_profile=circ,
                     relationships_with_others="",
                     relationships=entity_npcs,
-                    initial_location=e.get("initial_location") or "长宁市古董街老宅正堂",
+                    initial_location=e.get("initial_location") or cleaned_scen or "开局场景",
+                    initial_residence=e.get("initial_residence") or e.get("initial_location") or "常驻居所",
                     initial_virtual_time=norm_time,
                     initial_health=int(e.get("initial_health", 100)),
                     initial_stamina=int(e.get("initial_stamina", 90)),
@@ -756,12 +761,14 @@ class IngestionService:
             '  "initial_inventory": ["物品1", "物品2", "物品3"],\n'
             '  "initial_goals": ["近期目标1", "长远愿景2"],\n'
             '  "initial_location": "开局具体场景位置",\n'
-            '  "initial_virtual_time": "符合世界观纪元的起始时间（如：\'新历 342年 霜降月 1日 08:00\' 或 \'2024年10月10日 08:00\'）",\n'
+            '  "initial_residence": "开局阶段的常驻住所/归宿据点（根据题材世界观与角色身份合理设定，如常驻的居所、公寓、基地、营地、洞府等；若为游历漂泊者可写\'四海漂泊/无固定居所\'）",\n'
+            '  "initial_virtual_time": "符合该题材世界观纪年体系的起始虚拟时间（现代/都市/近未来使用公历如\'2026年10月10日 08:00\'；架空题材采用自洽的历法纪年，必须包含具体年月日与时分，严禁无相关设定时无端套用西幻历法）",\n'
             '  "relationships": [\n'
             "    {\n"
             '      "npc_name": "NPC姓名",\n'
             '      "relation_type": "关系类型（如搭档/同行者/竞争对手/导师/长辈等）",\n'
             '      "affinity": 50,\n'
+            '      "residence_location": "该NPC所属常驻据点、固定居所或流动状态（根据其职业与身份合理设定；若无固定居所可写\'居无定所/行踪不定\'）",\n'
             '      "background": "NPC在世界中的客观身份背景、核心能力与性格底色（60~120字）",\n'
             '      "attitude": "当前主角对该角色的专属主观态度、评价、好感成因与相处羁绊（40~80字）"\n'
             "    }\n"
@@ -790,6 +797,8 @@ class IngestionService:
             user_prompt_lines.append(f"- 外貌特征要求: {req.appearance.strip()}")
         if req.archetype and req.archetype.strip():
             user_prompt_lines.append(f"- 性格底色/处事风格: {req.archetype.strip()}")
+        if req.initial_residence and req.initial_residence.strip():
+            user_prompt_lines.append(f"- 常驻住所/归宿据点偏好: {req.initial_residence.strip()}")
         if req.world_guidance and req.world_guidance.strip():
             user_prompt_lines.append(f"- 世界观、社交网络与人际羁绊引导: {req.world_guidance.strip()}")
         if req.initial_situation and req.initial_situation.strip():
@@ -868,6 +877,7 @@ class IngestionService:
                 "relation_type": rel_type,
                 "affinity": aff,
                 "summary": final_summary,
+                "residence_location": strip_emojis(r.get("residence_location", "")).strip(),
             })
 
         # 世界书清洗
@@ -894,6 +904,7 @@ class IngestionService:
                 "content": f"{name} 所处的世界处于生动演化之中，未知与机遇并存。",
             })
 
+        init_res = strip_emojis(data.get("initial_residence") or req.initial_residence or data.get("initial_location") or "常驻居所").strip()
         detected_entity = {
             "entity_id": entity_id,
             "name": name,
@@ -907,7 +918,8 @@ class IngestionService:
             "circadian_profile": circadian,
             "relationships": cleaned_relationships,
             "initial_location": strip_emojis(data.get("initial_location") or "起始场景"),
-            "initial_virtual_time": strip_emojis(data.get("initial_virtual_time") or "晨光月 1日 08:00"),
+            "initial_residence": init_res,
+            "initial_virtual_time": strip_emojis(data.get("initial_virtual_time") or "2026年10月10日 08:00"),
             "initial_health": int(data.get("initial_health", 100)),
             "initial_stamina": int(data.get("initial_stamina", 85)),
             "initial_psychological_state": strip_emojis(data.get("initial_psychological_state") or "平稳且怀有期待"),

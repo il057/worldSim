@@ -24,6 +24,10 @@
               <Icon v-if="idx === 0" icon="material-symbols:badge" class="mini-icon" />
               <span>{{ t }}</span>
             </span>
+            <span v-if="state?.residence" class="char-title-chip neu-flat-xs">
+              <Icon icon="material-symbols:home-pin" class="mini-icon" />
+              <span>据点: {{ state.residence }}</span>
+            </span>
           </div>
         </div>
       </div>
@@ -260,13 +264,17 @@
           </div>
 
           <!-- 第二行：NPC 身份与定位标签区（多标签流式弹性排列，绝不挤压名字、绝不溢出） -->
-          <div v-if="npc.relation_type" class="npc-tags-row">
+          <div v-if="npc.relation_type || npc.residence_location" class="npc-tags-row">
             <span
               v-for="(tag, tIdx) in splitTitles(npc.relation_type)"
               :key="tIdx"
               class="npc-relation-badge neu-flat-xs"
             >
               {{ tag }}
+            </span>
+            <span v-if="npc.residence_location" class="npc-relation-badge neu-flat-xs">
+              <Icon icon="material-symbols:home-pin" class="state-icon" style="font-size: 11px; margin-right: 2px;" />
+              {{ npc.residence_location }}
             </span>
           </div>
 

@@ -64,7 +64,7 @@
             <input
               v-model="form.birthday"
               class="neu-input neu-inset-sm"
-              placeholder="例如: 霜降月 12日 或 10月15日"
+              placeholder="例如: 10月15日 或 对应世界观历法日期"
             />
           </div>
         </div>
@@ -106,6 +106,18 @@
             class="neu-textarea neu-inset-sm guidance-textarea"
             rows="3"
             placeholder="例如: ta朋友很多，在学校最好的朋友是一个擅长火魔法的金发女生；欠着高年级恶霸一笔炼金实验债务；这所学校是浮空岛上的封闭魔法学院，主角主修召唤学但偷偷研究禁忌炼金..."
+          />
+        </div>
+
+        <div class="form-group">
+          <label>
+            <Icon icon="material-symbols:home-pin" class="label-icon" />
+            常驻居所 / 安全据点偏好 (可选)
+          </label>
+          <input
+            v-model="form.initial_residence"
+            class="neu-input neu-inset-sm"
+            placeholder="例如: 常驻公寓套房、四海漂泊（留空由 AI 自动构思）"
           />
         </div>
 
@@ -186,6 +198,7 @@ const form = reactive({
   role: '',
   appearance: '',
   archetype: '',
+  initial_residence: '',
   world_guidance: '',
   initial_situation: '',
 })

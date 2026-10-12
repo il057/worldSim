@@ -200,7 +200,12 @@
 
             <div class="form-field">
               <label>外貌体征与常驻装束</label>
-              <input v-model="activeEntity.appearance" class="neu-input" placeholder="身高、体型、发色瞳孔、面容特征与标志性衣着穿搭" />
+              <textarea
+                v-model="activeEntity.appearance"
+                class="neu-input appearance-textarea"
+                rows="2"
+                placeholder="身高、体型、发色瞳孔、面容特征与标志性衣着穿搭"
+              ></textarea>
             </div>
 
             <div class="form-field">
@@ -238,6 +243,14 @@
                   v-model="activeEntity.initial_location"
                   class="neu-input"
                   placeholder="如：长宁市古董街老宅正堂"
+                />
+              </div>
+              <div class="form-field">
+                <label>常驻安身据点 / 住所</label>
+                <input
+                  v-model="activeEntity.initial_residence"
+                  class="neu-input"
+                  placeholder="如：晨曦镇工坊阁楼 或 四海漂泊"
                 />
               </div>
               <div class="form-field">
@@ -402,14 +415,10 @@
               :key="nIdx"
               class="npc-edit-card neu-flat-sm"
             >
-              <div class="npc-row-main">
+              <div class="npc-row-line1">
                 <div class="form-field npc-name-field">
                   <label>NPC 姓名</label>
                   <input v-model="npc.npc_name" class="neu-input" placeholder="NPC 姓名" />
-                </div>
-                <div class="form-field npc-rel-field">
-                  <label>社会关系类型</label>
-                  <input v-model="npc.relation_type" class="neu-input" placeholder="如：主要搭档 / 导师 / 宿敌" />
                 </div>
                 <div class="form-field npc-affinity-field">
                   <label>初始好感 (-100 ~ 100)</label>
@@ -429,6 +438,21 @@
                 >
                   <Icon icon="material-symbols:delete" />
                 </button>
+              </div>
+
+              <div class="npc-row-line2">
+                <div class="form-field npc-rel-field">
+                  <label>社会关系类型</label>
+                  <input v-model="npc.relation_type" class="neu-input" placeholder="如：主要搭档 / 导师 / 宿敌" />
+                </div>
+                <div class="form-field npc-residence-field">
+                  <label>常驻据点 / 活动范围</label>
+                  <input
+                    v-model="npc.residence_location"
+                    class="neu-input"
+                    placeholder="如：晨曦镇学徒工坊 / 行踪不定"
+                  />
+                </div>
               </div>
 
               <!-- 双轨深度人际结构：客观背景画像 + 对该角色的态度与羁绊 -->
@@ -847,6 +871,7 @@ const handleImport = async () => {
       lores: editableLores.value,
       relationships: activeEntity.value.relationships || [],
       initial_location: activeEntity.value.initial_location,
+      initial_residence: activeEntity.value.initial_residence,
       initial_virtual_time: activeEntity.value.initial_virtual_time,
       initial_health: activeEntity.value.initial_health,
       initial_stamina: activeEntity.value.initial_stamina,
@@ -1007,7 +1032,9 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  background: rgba(255, 255, 255, 0.4);
+  background: var(--neu-surface);
+  box-shadow: var(--shadow-inset-sm);
+  border: 1px solid var(--neu-border);
   padding: 0.85rem;
   border-radius: 12px;
 }
@@ -1065,7 +1092,7 @@ defineExpose({
 .entity-card.is-selected {
   border-left-color: var(--neu-accent);
   box-shadow: var(--shadow-inset-sm);
-  background: rgba(230, 238, 250, 0.6);
+  background: rgba(var(--neu-accent-rgb), 0.15);
 }
 
 .entity-card-top {
@@ -1165,7 +1192,9 @@ defineExpose({
   gap: 1.15rem;
   padding: 0.85rem 1rem;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.45);
+  background: var(--neu-surface);
+  box-shadow: var(--shadow-inset-sm);
+  border: 1px solid var(--neu-border);
 }
 
 .avatar-preview-box {
@@ -1179,7 +1208,7 @@ defineExpose({
   height: 100%;
   border-radius: 12px;
   object-fit: cover;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--neu-border);
 }
 
 .avatar-placeholder-large {
@@ -1319,6 +1348,13 @@ defineExpose({
 
 .drive-textarea {
   resize: vertical;
+}
+
+.appearance-textarea {
+  resize: vertical;
+  line-height: 1.5;
+  font-size: 0.8rem;
+  min-height: 52px;
 }
 
 .persona-textarea {
@@ -1464,9 +1500,16 @@ defineExpose({
   gap: 0.55rem;
 }
 
-.npc-row-main {
+.npc-row-line1 {
   display: grid;
-  grid-template-columns: 1fr 1fr 100px 36px;
+  grid-template-columns: 1fr 160px 36px;
+  gap: 0.65rem;
+  align-items: flex-end;
+}
+
+.npc-row-line2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.65rem;
   align-items: flex-end;
 }

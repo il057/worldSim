@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS character_states (
     character_id TEXT NOT NULL UNIQUE,         -- 关联 characters.id
     virtual_time TEXT NOT NULL,                -- 虚拟世界时间字符串 (如 "霜降月 14日 22:00")
     location TEXT NOT NULL,                    -- 当前微观物理场景位置
+    residence TEXT DEFAULT '',                 -- 当前阶段常驻住所/归宿据点 (支持随远行游历动态迁移)
     health INTEGER DEFAULT 100,                -- 生理健康值 (0 - 100)
     stamina INTEGER DEFAULT 100,               -- 体能/精力值 (0 - 100)，睡眠机制的核心驱动源
     is_sleeping INTEGER DEFAULT 0,             -- 当前是否处于休眠状态 (1=熟睡中, 0=清醒)
@@ -79,6 +80,9 @@ CREATE TABLE IF NOT EXISTS character_relationships (
     affinity INTEGER DEFAULT 50,               -- 好感/羁绊数值 (-100 ~ 100)
     summary TEXT NOT NULL,                     -- 关系渊源与 NPC 特征简述
     is_present INTEGER DEFAULT 0,              -- 1=在同场景, 0=未在场
+    residence_location TEXT DEFAULT '',        -- NPC 常驻物理据点或流动状态 (如 '晨曦镇学徒工坊' 或 '行踪不定/云游四方')
+    last_interacted_virtual_time TEXT DEFAULT '', -- 最后发生实际交集的虚拟时间字符串
+    is_archived INTEGER DEFAULT 0,             -- 0=活跃社交圈, 1=因时过境迁/久无交集自然淡化归档
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
 );

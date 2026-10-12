@@ -21,6 +21,7 @@ class DetectedRelationship(BaseModel):
     relation_type: str = "相识"
     affinity: int = 50
     summary: str = ""
+    residence_location: Optional[str] = ""
 
 
 class DetectedEntity(BaseModel):
@@ -36,8 +37,9 @@ class DetectedEntity(BaseModel):
     circadian_profile: CircadianProfile
     relationships_with_others: Optional[str] = ""
     relationships: List[DetectedRelationship] = Field(default_factory=list, description="该实体主视角下专属的社交关系网（含其他主要角色、公共NPC及替代user的具象化NPC）")
-    initial_location: Optional[str] = "长宁市古董街老宅"
-    initial_virtual_time: Optional[str] = "晨光月 1日 08:00"
+    initial_location: Optional[str] = "初始场景"
+    initial_residence: Optional[str] = "常驻居所"
+    initial_virtual_time: Optional[str] = "2026年10月10日 08:00"
     initial_health: Optional[int] = 100
     initial_stamina: Optional[int] = 90
     initial_psychological_state: Optional[str] = "警惕且冷静"
@@ -76,6 +78,7 @@ class CardImportRequest(BaseModel):
     lores: List[WorldLoreInput] = []
     relationships: List[DetectedRelationship] = []
     initial_location: Optional[str] = None
+    initial_residence: Optional[str] = None
     initial_virtual_time: Optional[str] = None
     initial_health: Optional[int] = None
     initial_stamina: Optional[int] = None
@@ -93,6 +96,7 @@ class QuickCharacterRequest(BaseModel):
     archetype: Optional[str] = Field(default="", description="性格底色与处事风格（可选）")
     world_guidance: Optional[str] = Field(default="", description="世界观、社交圈与人际羁绊引导（可选）")
     initial_situation: Optional[str] = Field(default="", description="开局微观处境与危机（可选）")
+    initial_residence: Optional[str] = Field(default="", description="常驻居所/安全据点（可选，未填由AI自主构思）")
 
 
 # -----------------------------
@@ -121,17 +125,20 @@ class NPCRelationshipDeltaItem(BaseModel):
     affinity: int = 50
     summary: str = ""
     is_present: bool = True
+    residence_location: Optional[str] = ""  # 常驻据点或流动状态（如 "晨曦镇学徒工坊" 或 "四海行踪不定/云游"）
 
 
 class RelationshipDelta(BaseModel):
     new_npcs: List[NPCRelationshipDeltaItem] = []
     updated_npcs: List[NPCRelationshipDeltaItem] = []
+    pruned_npcs: List[str] = []  # 因时过境迁、久未联系或主角远行而自然淡出活跃圈的 NPC 姓名数组
 
 
 class ArbitratorDelta(BaseModel):
     simulated_hours_passed: float = 1.0
     new_virtual_time: str
     new_location: str
+    new_residence: Optional[str] = None  # 本轮推演后主角的最新安身据点/庇护所（若发生据点迁移或流浪时更新）
     rest_decision: RestDecision
     health_delta: int = 0
     stamina_delta: int = 0
@@ -151,6 +158,7 @@ class CharacterStateView(BaseModel):
     character_id: str
     virtual_time: str
     location: str
+    residence: Optional[str] = ""
     health: int
     stamina: int
     is_sleeping: int
@@ -186,6 +194,9 @@ class CharacterRelationshipView(BaseModel):
     affinity: int
     summary: str
     is_present: int
+    residence_location: Optional[str] = ""
+    last_interacted_virtual_time: Optional[str] = ""
+    is_archived: int = 0
 
 
 class CharacterDetailView(BaseModel):

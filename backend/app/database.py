@@ -43,6 +43,25 @@ def init_db():
                     if "appearance" not in columns:
                         conn.execute(text("ALTER TABLE characters ADD COLUMN appearance TEXT DEFAULT ''"))
                     conn.commit()
+
+                # 动态检测并自动补齐角色人际关系表字段
+                rel_cursor = conn.execute(text("PRAGMA table_info(character_relationships)"))
+                rel_columns = [row[1] for row in rel_cursor.fetchall()]
+                if rel_columns:
+                    if "residence_location" not in rel_columns:
+                        conn.execute(text("ALTER TABLE character_relationships ADD COLUMN residence_location VARCHAR(128) DEFAULT ''"))
+                    if "last_interacted_virtual_time" not in rel_columns:
+                        conn.execute(text("ALTER TABLE character_relationships ADD COLUMN last_interacted_virtual_time VARCHAR(64) DEFAULT ''"))
+                    if "is_archived" not in rel_columns:
+                        conn.execute(text("ALTER TABLE character_relationships ADD COLUMN is_archived INTEGER DEFAULT 0"))
+                    conn.commit()
+
+                # 动态检测并自动补齐角色即时状态表据点字段
+                state_cursor = conn.execute(text("PRAGMA table_info(character_states)"))
+                state_columns = [row[1] for row in state_cursor.fetchall()]
+                if state_columns and "residence" not in state_columns:
+                    conn.execute(text("ALTER TABLE character_states ADD COLUMN residence VARCHAR(128) DEFAULT ''"))
+                    conn.commit()
         except Exception as e:
             import logging
             logging.getLogger("world_sim.db").warning(f"SQLite 自动列补齐检测提示: {e}")

@@ -58,12 +58,12 @@ class ArbitratorService:
         自动处理跨日与分钟进位，并彻底剔除任何类似 (+5h) 的冗余垃圾后缀。
         """
         if not curr_time_str:
-            return "2024年10月9日 08:00"
+            return "2026年10月9日 08:00"
 
         # 1. 彻底清理所有历史残留的 (+Xh) 或 (+X小时) 等任何累加后缀
         clean_str = re.sub(r"\s*\(\+\d+(\.\d+)?[hH小时]+\)", "", curr_time_str).strip()
 
-        # 2. 尝试标准年月日时分匹配: 如 2024年10月9日 23:45 或 2024-10-09 23:45
+        # 2. 尝试标准年月日时分匹配: 如 2026年10月9日 23:45 或 2026-10-09 23:45
         date_match = re.search(r"(\d{4})[年\-](\d{1,2})[月\-](\d{1,2})[日\s]+(?:[^\d]*?)(\d{1,2}):(\d{2})", clean_str)
         if date_match:
             y, m, d, hh, mm = map(int, date_match.groups())
@@ -206,7 +206,8 @@ class ArbitratorService:
             for item in rel_data.get("updated_npcs", []):
                 if isinstance(item, dict) and item.get("npc_name"):
                     updated_npcs_list.append(NPCRelationshipDeltaItem(**item))
-            rel_delta = RelationshipDelta(new_npcs=new_npcs_list, updated_npcs=updated_npcs_list)
+            pruned_npcs_list = [p.strip() for p in rel_data.get("pruned_npcs", []) if isinstance(p, str) and p.strip()]
+            rel_delta = RelationshipDelta(new_npcs=new_npcs_list, updated_npcs=updated_npcs_list, pruned_npcs=pruned_npcs_list)
 
             sim_hours = float(data.get("simulated_hours_passed", hours_passed))
             new_time_val = data.get("new_virtual_time")
@@ -217,6 +218,7 @@ class ArbitratorService:
                 simulated_hours_passed=sim_hours,
                 new_virtual_time=new_time_val,
                 new_location=data.get("new_location", state.location),
+                new_residence=data.get("new_residence") or getattr(state, "residence", ""),
                 rest_decision=RestDecision(
                     is_sleeping=bool(rest_data.get("is_sleeping", False)),
                     sleep_quality=rest_data.get("sleep_quality", "none"),

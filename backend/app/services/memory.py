@@ -62,14 +62,14 @@ class MemoryService:
             "=== [Tier 1: Living State Sheet (当前即时生存看板)] ===",
             f"主角姓名: {character.name} (头衔: {character.title or '无'}{age_info})",
             f"生理体征: 性别={gender_val} | 外貌特征={appearance_val}",
-            f"虚拟时空: {state.virtual_time} | 当前微观物理地点: {state.location}",
+            f"虚拟时空: {state.virtual_time} | 当前微观地点: {state.location} | 当前安身据点/住所: {getattr(state, 'residence', '') or '四海漂泊/流浪途中'}",
             f"生理指标: 健康值 {state.health}/100 | 精力值 {state.stamina}/100 | 生理状态: {status_text}",
             f"心理情绪: {state.psychological_state}",
             f"自适应作息画像: 节律={profile_data.get('chronotype', '昼夜无律型')}, "
             f"倾向休眠窗口={profile_data.get('typical_rest_window', '无')}, "
             f"环境容忍度={profile_data.get('environment_tolerance', '普通室内')}",
             f"核心内在执念 (Inner Drive): {character.inner_drive}",
-            f"随身物品背包: {', '.join(inventory) if inventory else '空'}",
+            f"随身物品背包 (当前容量 {len(inventory)}/8 件{'【严重超载，本次必须强制消耗/收纳/清理】' if len(inventory) >= 8 else ''}): {', '.join(inventory) if inventory else '空'}",
             f"当前推进目标: {', '.join(active_goals) if active_goals else '无明确短期目标'}",
             f"历史已达成目标: {', '.join(completed_goals[-3:]) if completed_goals else '无'}",
         ]
@@ -87,13 +87,28 @@ class MemoryService:
     @staticmethod
     def format_relationships_block(db: Session, character_id: str) -> str:
         """独立高亮格式化人际关系网与在场角色 (Relationships & NPCs)，作为社会交互核心"""
-        npcs = db.query(CharacterRelationship).filter(CharacterRelationship.character_id == character_id).all()
+        npcs = (
+            db.query(CharacterRelationship)
+            .filter(
+                CharacterRelationship.character_id == character_id,
+                CharacterRelationship.is_archived == 0,
+            )
+            .all()
+        )
         if not npcs:
-            return "=== [人际关系网络与关联角色 (Relationships & NPCs)] ===\n主角当前独行，暂无已结识的关键角色。"
-        lines = ["=== [人际关系网络与关联角色 (Relationships & NPCs)] ==="]
+            return "=== [人际关系网络与关联角色 (Relationships & NPCs)] ===\n主角当前独行，暂无活跃的已结识关键角色。"
+        lines = [
+            "=== [人际关系网络与关联角色 (Relationships & NPCs)] ===",
+            "【空间与出场法则】: NPC 默认居于其常驻地。若其常驻地并非主角当前现场且其非‘同行者’，绝不可凭空出现在现场！居无定所/云游四海类角色仅在合乎情理的偶遇中现身。",
+        ]
         for npc in npcs:
             pres = "【就在眼前同一现场】" if npc.is_present else "未在当前视线内"
-            lines.append(f"- {npc.npc_name} (关系: {npc.relation_type}, 好感度: {npc.affinity}/100, 现场状态: {pres})\n  人物背景与对主角态度: {npc.summary}")
+            loc_desc = f"常驻地/活动范围: {npc.residence_location}" if npc.residence_location else "常驻地: 未标明"
+            time_desc = f" | 最后交集: {npc.last_interacted_virtual_time}" if npc.last_interacted_virtual_time else ""
+            lines.append(
+                f"- {npc.npc_name} (关系: {npc.relation_type}, 好感度: {npc.affinity}/100, {loc_desc}{time_desc}, 现场状态: {pres})\n"
+                f"  人物背景与对主角态度: {npc.summary}"
+            )
         return "\n".join(lines)
 
     @staticmethod

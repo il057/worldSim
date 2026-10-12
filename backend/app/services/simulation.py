@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 from typing import Dict, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -36,6 +37,8 @@ def _apply_tick_delta(db: Session, character: Character, state: CharacterState, 
     """原子更新状态看板、背包、目标以及人际关系网"""
     state.virtual_time = delta.new_virtual_time
     state.location = delta.new_location
+    if getattr(delta, "new_residence", None) and str(delta.new_residence).strip():
+        state.residence = str(delta.new_residence).strip()
     state.health = max(0, min(100, state.health + delta.health_delta))
     state.stamina = max(0, min(100, state.stamina + delta.stamina_delta))
     state.is_sleeping = 1 if delta.rest_decision.is_sleeping else 0
@@ -87,11 +90,18 @@ def _apply_tick_delta(db: Session, character: Character, state: CharacterState, 
                     affinity=max(-100, min(100, n_item.affinity)),
                     summary=final_sum,
                     is_present=1 if n_item.is_present else 0,
+                    residence_location=n_item.residence_location or delta.new_location or "",
+                    last_interacted_virtual_time=delta.new_virtual_time,
+                    is_archived=0,
                 )
                 db.add(new_rel)
-                logger.info(f"[NPC动态结识] 角色 {character.name} 结识了新角色: {name_clean} ({n_item.relation_type})")
+                logger.info(f"[NPC动态结识] 角色 {character.name} 结识了新角色: {name_clean} ({n_item.relation_type}, 常驻地: {new_rel.residence_location})")
             else:
                 existing_npc.is_present = 1 if n_item.is_present else 0
+                existing_npc.last_interacted_virtual_time = delta.new_virtual_time
+                existing_npc.is_archived = 0  # 重新互动激活
+                if n_item.residence_location:
+                    existing_npc.residence_location = n_item.residence_location
                 if n_item.summary:
                     new_s = n_item.summary.strip()
                     parts = re.split(r"【对该角色的态度与羁绊】[：:]?\s*", existing_npc.summary or "")
@@ -112,6 +122,10 @@ def _apply_tick_delta(db: Session, character: Character, state: CharacterState, 
             if existing_npc:
                 existing_npc.affinity = max(-100, min(100, u_item.affinity))
                 existing_npc.is_present = 1 if u_item.is_present else 0
+                existing_npc.last_interacted_virtual_time = delta.new_virtual_time
+                existing_npc.is_archived = 0
+                if u_item.residence_location:
+                    existing_npc.residence_location = u_item.residence_location
                 if u_item.summary:
                     new_s = u_item.summary.strip()
                     parts = re.split(r"【对该角色的态度与羁绊】[：:]?\s*", existing_npc.summary or "")
@@ -121,6 +135,22 @@ def _apply_tick_delta(db: Session, character: Character, state: CharacterState, 
                         existing_npc.summary = new_s
                 if u_item.relation_type:
                     existing_npc.relation_type = u_item.relation_type
+
+        # 3. 处理时过境迁、久未联系的弱关系归档 (Pruning)
+        for p_name in getattr(delta.relationship_delta, "pruned_npcs", []):
+            if not p_name or not p_name.strip():
+                continue
+            p_clean = p_name.strip()
+            p_npc = db.query(CharacterRelationship).filter(
+                CharacterRelationship.character_id == character.id,
+                CharacterRelationship.npc_name == p_clean,
+            ).first()
+            if p_npc:
+                # 仅当非极端深仇大恨/生死之交时允许归档淡化
+                if -30 <= p_npc.affinity <= 30 and p_npc.relation_type not in ["宿敌", "生死挚友", "至亲"]:
+                    p_npc.is_archived = 1
+                    p_npc.is_present = 0
+                    logger.info(f"[NPC自然淡化归档] 角色 {character.name} 与 {p_clean} 因时过境迁自然淡出活跃社交圈")
 
 
 class SimulationService:

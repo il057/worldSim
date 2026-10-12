@@ -73,6 +73,7 @@ async def import_card(req: CardImportRequest, db: Session = Depends(get_db)):
 
     # 初始状态（优先采用用户在前端微调的值，其次采用实体自适应提取的值）
     final_location = req.initial_location or selected.initial_location or "常驻安全据点"
+    final_residence = req.initial_residence or getattr(selected, "initial_residence", "") or final_location
     final_time = req.initial_virtual_time or selected.initial_virtual_time or "晨光月 1日 08:00"
     final_health = req.initial_health if req.initial_health is not None else (selected.initial_health or 100)
     final_stamina = req.initial_stamina if req.initial_stamina is not None else (selected.initial_stamina or 90)
@@ -84,6 +85,7 @@ async def import_card(req: CardImportRequest, db: Session = Depends(get_db)):
         character_id=char_id,
         virtual_time=final_time,
         location=final_location,
+        residence=final_residence,
         health=max(0, min(100, final_health)),
         stamina=max(0, min(100, final_stamina)),
         is_sleeping=0,
@@ -122,6 +124,8 @@ async def import_card(req: CardImportRequest, db: Session = Depends(get_db)):
                     affinity=rel.affinity if rel.affinity is not None else 50,
                     summary=rel.summary or "",
                     is_present=0,
+                    residence_location=getattr(rel, "residence_location", "") or "",
+                    last_interacted_virtual_time=final_time,
                 )
             )
 
@@ -141,6 +145,8 @@ async def import_card(req: CardImportRequest, db: Session = Depends(get_db)):
                     affinity=rel_aff,
                     summary=rel_sum,
                     is_present=0,
+                    residence_location=getattr(entity, "initial_residence", "") or entity.initial_location or "",
+                    last_interacted_virtual_time=final_time,
                 )
             )
 
@@ -202,10 +208,12 @@ async def generate_quick_character(req: QuickCharacterRequest, db: Session = Dep
     db.add(new_char)
 
     # 初始状态
+    init_res = gen_data.get("initial_residence") or req.initial_residence or gen_data.get("initial_location") or "荒原旧废墟据点"
     init_state = CharacterState(
         character_id=char_id,
         virtual_time=gen_data.get("initial_virtual_time", "晨光月 1日 08:00"),
         location=gen_data.get("initial_location", "荒原旧废墟据点"),
+        residence=init_res,
         health=gen_data.get("initial_health", 100),
         stamina=gen_data.get("initial_stamina", 85),
         is_sleeping=0,
@@ -232,6 +240,8 @@ async def generate_quick_character(req: QuickCharacterRequest, db: Session = Dep
                     affinity=int(rel.get("affinity", 50)),
                     summary=rel.get("summary", ""),
                     is_present=0,
+                    residence_location=rel.get("residence_location", "") if isinstance(rel, dict) else "",
+                    last_interacted_virtual_time=gen_data.get("initial_virtual_time", ""),
                 )
             )
 
