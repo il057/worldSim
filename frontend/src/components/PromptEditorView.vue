@@ -306,23 +306,23 @@ const stylePresets = reactive<Record<string, { name: string; badge: string; desc
     description: '体面与规则彻底失效后的荒唐宣泄；苦笑交织，理性崩盘与严肃荒谬猛烈撞车。',
     author_reference: '陀思妥耶夫斯基《地下室手记》、太宰治《人间失格》、恰佩克',
   },
-  subtle_melancholy: {
-    name: '日常钝痛',
-    badge: '细腻物哀',
-    description: '生活钝痛是沉缓的，不轻易爆发。着眼于日常细节的分寸感：擦拭杯沿的停顿、领口的潮气与迟滞的回应。',
-    author_reference: '雷蒙德·卡佛《当我们谈论爱情时》、石黑一雄《长日将尽》、川端康成《雪国》',
+  light_witty: {
+    name: '轻快欢脱',
+    badge: '灵动诙谐',
+    description: '节奏轻快灵动，充满生活化拌嘴、机锋吐槽与意外频出的小滑稽；阳光明澈，绝不苦大仇深。',
+    author_reference: '特里·普拉切特《碟形世界》、J.K.罗琳早期校园笔触、经典冒险轻小说',
   },
-  stream_flow: {
-    name: '感官漫游',
-    badge: '意识流动',
-    description: '思维随环境感知自然起伏，时间非匀速节拍，过去记忆与当前触觉交织，感官颗粒度极细。',
-    author_reference: '普鲁斯特《追寻逝去的时光》、伍尔夫《达洛维夫人》、乔伊斯',
+  bustling_hearth: {
+    name: '市井烟火',
+    badge: '群像人间',
+    description: '热气腾腾的人间市集与日常底噪；食堂人声、街巷叫卖、茶馆饭摊，小人物的狡黠与温存。',
+    author_reference: '老舍《茶馆》、金庸武侠市井篇、金宇澄《繁花》、汪曾祺',
   },
   cinematic_retro: {
-    name: '慢调光影',
-    badge: '疏离留白',
-    description: '时间慢半拍，情绪迟一步。走在杂沓人流中，心境却像隔着旧玻璃；注重明暗光影切片与欲言又止。',
-    author_reference: '王家卫电影台本《重庆森林》《花样年华》、杜拉斯《情人》、村上春树早期',
+    name: '冷调光影',
+    badge: '电影质感',
+    description: '胶片光晕与疏离节拍。时间慢半拍，情绪隔着起雾旧玻璃，克制留白与物哀沉思。',
+    author_reference: '王家卫《花样年华》《重庆森林》、石黑一雄《长日将尽》、杜拉斯《情人》',
   },
   classic_epic: {
     name: '沉郁庄严',

@@ -12,31 +12,77 @@ logger = logging.getLogger("world_sim.memory")
 def calculate_dynamic_age(birthday_or_persona: str, current_virtual_time_str: str) -> Optional[int]:
     """基于虚拟世界当前时间与角色生日或档案，动态计算实时周岁"""
     import re
-    if not current_virtual_time_str or not birthday_or_persona:
+    if not birthday_or_persona:
         return None
 
-    curr_y_m = re.search(r"(\d{4})[年\-]", current_virtual_time_str)
-    if not curr_y_m:
-        return None
-    curr_year = int(curr_y_m.group(1))
+    # 1. 尝试直接从人设中提取明确指定的年龄数字（如 "年龄: 11岁"、"现年11岁"、"11周岁" 等）
+    direct_age_match = re.search(r"(?:年龄|现年|刚满|年方|约|实岁|周岁)[^\d\n]{0,6}(\d{1,3})\s*(?:岁|周岁)", birthday_or_persona)
+    if not direct_age_match:
+        direct_age_match = re.search(r"(\d{1,3})\s*(?:周岁|岁)", birthday_or_persona)
+    if direct_age_match:
+        age_val = int(direct_age_match.group(1))
+        if 0 < age_val < 300:
+            return age_val
 
-    # 优先匹配直接传入的生日格式
-    direct_match = re.search(r"(\d{4})[年\-]", birthday_or_persona)
-    if direct_match:
-        birth_year = int(direct_match.group(1))
-        if 0 < curr_year - birth_year < 200:
-            return curr_year - birth_year
+    # 2. 基于年份差值动态计算
+    if current_virtual_time_str:
+        curr_y_m = re.search(r"(\d{4})[年\-]", current_virtual_time_str)
+        if curr_y_m:
+            curr_year = int(curr_y_m.group(1))
 
-    birth_y_m = re.search(r"(?:诞生时间|生日|出生|诞生)[^\d\n]{0,12}(\d{4})[年\-]", birthday_or_persona)
-    if not birth_y_m:
-        birth_y_m = re.search(r"(\d{4})[年\-]\d{1,2}[月\-]\d{1,2}[日号]?", birthday_or_persona)
+            direct_match = re.search(r"(\d{4})[年\-]", birthday_or_persona)
+            if direct_match:
+                birth_year = int(direct_match.group(1))
+                if 0 < curr_year - birth_year < 200:
+                    return curr_year - birth_year
 
-    if birth_y_m:
-        birth_year = int(birth_y_m.group(1))
-        if 0 < curr_year - birth_year < 200:
-            return curr_year - birth_year
+            birth_y_m = re.search(r"(?:诞生时间|生日|出生|诞生)[^\d\n]{0,12}(\d{4})[年\-]", birthday_or_persona)
+            if not birth_y_m:
+                birth_y_m = re.search(r"(\d{4})[年\-]\d{1,2}[月\-]\d{1,2}[日号]?", birthday_or_persona)
+
+            if birth_y_m:
+                birth_year = int(birth_y_m.group(1))
+                if 0 < curr_year - birth_year < 200:
+                    return curr_year - birth_year
 
     return None
+
+
+def get_age_stage_key(character: Character, current_virtual_time_str: str) -> str:
+    """基于实时周岁或背景线索，返回当前生命周期阶段 key: 'child' | 'youth' | 'adult' | 'elder' | 'fallback'"""
+    birthday_str = getattr(character, "birthday", "") or ""
+    persona_text = getattr(character, "persona_summary", "") or ""
+    dynamic_age = calculate_dynamic_age(birthday_str or persona_text, current_virtual_time_str)
+    if dynamic_age is not None:
+        if dynamic_age < 16:
+            return "child"
+        elif dynamic_age <= 25:
+            return "youth"
+        elif dynamic_age <= 50:
+            return "adult"
+        else:
+            return "elder"
+    return "fallback"
+
+
+def get_age_dynamics_descriptor(character: Character, current_virtual_time_str: str) -> str:
+    """计算实时周岁并返回紧凑的阶段认知标签，杜绝冗长文本堆砌"""
+    stage_key = get_age_stage_key(character, current_virtual_time_str)
+    birthday_str = getattr(character, "birthday", "") or ""
+    persona_text = getattr(character, "persona_summary", "") or ""
+    dynamic_age = calculate_dynamic_age(birthday_str or persona_text, current_virtual_time_str)
+
+    stage_names = {
+        "child": "幼少期 (< 16 岁，以自我为参照，掩饰即时单一)",
+        "youth": "青年前期 (16~25 岁，理想与现实拉扯，自我意识极强)",
+        "adult": "壮年中期 (26~50 岁，沉没成本与现实面具，深知代价)",
+        "elder": "暮年/长生者 (> 50 岁，低能耗去中心化，高耐受钝感)",
+        "fallback": "生命阶段由模型依据身份与背景自动推断",
+    }
+    stage_label = stage_names.get(stage_key, stage_names["fallback"])
+    if dynamic_age is not None:
+        return f"周岁约 {dynamic_age} 岁 (生命阶段: {stage_label})"
+    return f"生命阶段: {stage_label}"
 
 
 class MemoryService:
@@ -52,15 +98,14 @@ class MemoryService:
         completed_goals = json.loads(state.completed_goals_json) if state.completed_goals_json else []
 
         status_text = "【熟睡休眠中】" if state.is_sleeping else "【清醒活动中】"
-        birthday_str = getattr(character, "birthday", "") or ""
-        dynamic_age = calculate_dynamic_age(birthday_str or character.persona_summary, state.virtual_time)
-        age_info = f" | 动态生理年龄: 实时周岁约 {dynamic_age} 岁 (随世界时间流逝自然增长)" if dynamic_age else ""
+        age_desc = get_age_dynamics_descriptor(character, state.virtual_time)
         gender_val = getattr(character, "gender", "") or "保密"
         appearance_val = getattr(character, "appearance", "") or "无特殊外貌记录"
 
         lines = [
             "=== [Tier 1: Living State Sheet (当前即时生存看板)] ===",
-            f"主角姓名: {character.name} (头衔: {character.title or '无'}{age_info})",
+            f"主角姓名: {character.name} (头衔: {character.title or '无'})",
+            f"年龄与生命阶段: {age_desc} (严格受【年龄行为认知锚点】约束)",
             f"生理体征: 性别={gender_val} | 外貌特征={appearance_val}",
             f"虚拟时空: {state.virtual_time} | 当前微观地点: {state.location} | 当前安身据点/住所: {getattr(state, 'residence', '') or '四海漂泊/流浪途中'}",
             f"生理指标: 健康值 {state.health}/100 | 精力值 {state.stamina}/100 | 生理状态: {status_text}",

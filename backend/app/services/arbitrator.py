@@ -149,7 +149,9 @@ class ArbitratorService:
             npc_presence_block = f"\n{build_present_npc_arbitrator_prompt(present_npc_names)}\n"
 
         pass1_custom = config.pass1_custom_prompt if config else None
-        system_prompt = build_arbitrator_system_prompt(pass1_custom)
+        from app.services.memory import get_age_stage_key
+        stage_key = get_age_stage_key(character, state.virtual_time)
+        system_prompt = build_arbitrator_system_prompt(pass1_custom, age_stage_key=stage_key)
         goals_text = MemoryService.format_active_goals_block(state)
         relationships_text = MemoryService.format_relationships_block(db, character.id)
 

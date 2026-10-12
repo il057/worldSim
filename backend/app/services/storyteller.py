@@ -89,7 +89,10 @@ class StorytellerService:
         if is_continuation:
             continuation_block = f"\n{CONTINUATION_STORYTELLER_PROMPT}\n"
 
-        # 动态构建严密的系统提示词
+        from app.services.memory import get_age_stage_key
+        stage_key = get_age_stage_key(character, delta.new_virtual_time or state.virtual_time)
+
+        # 动态构建严密的系统提示词（按生命阶段精准注入，绝不全量浪费 Token）
         system_prompt = build_storyteller_system_prompt(
             style_key=style_key,
             word_tier_key=word_tier_key,
@@ -99,6 +102,7 @@ class StorytellerService:
             custom_guidance=guidance,
             custom_base_prompt=custom_base,
             enable_phone_simulation=enable_phone,
+            age_stage_key=stage_key,
         )
 
         goals_text = MemoryService.format_active_goals_block(state)
@@ -110,9 +114,19 @@ class StorytellerService:
         except Exception:
             inv_str = "空"
 
+        stage_focus_map = {
+            "child": "幼少期行为锚点（掩饰即时单一、失控发懵心慌、破局得逞暗爽）",
+            "youth": "青年前期行为锚点（自尊心强、言行拉扯分裂、老成多为紧绷拟态）",
+            "adult": "壮年中期行为锚点（利益权衡、沉没成本控制、稳定社交面具）",
+            "elder": "暮年长生者行为锚点（低能耗原则、极高耐受阈值、无意义证明极少）",
+            "fallback": "生命阶段行为锚点（依据角色身世与社会身份推断并贯彻）",
+        }
+        stage_focus = stage_focus_map.get(stage_key, stage_focus_map["fallback"])
+
         user_prompt = (
             f"主角姓名: {character.name}\n"
             f"职业称号: {character.title or '游荡者'}\n"
+            f"当前阶段行为基准: 遵循【{stage_focus}】（绝不在正文复述年龄或设定词句，以动作与反应自然流露）\n"
             f"核心执念 (Inner Drive): {character.inner_drive}\n"
             f"随身背包物品: {inv_str}\n\n"
             f"{goals_text}\n\n"
@@ -130,6 +144,7 @@ class StorytellerService:
             f"{npc_presence_block}"
             f"{continuation_block}\n"
             f"【叙事核心法则】: 必须紧扣主角的【当前推进目标】与【人际关系网（尤其是现场角色）】展开具有戏剧推进力的小说正文！若有在场 NPC，重点描写其言语交锋、心理防御与肢体微动作；\n"
+            f"【去设定定性与去年龄报数铁律 (Show, Don't Tell)】: 严禁在正文中写出“XX岁的神经”、“XX岁的躯体/心智”、“少年人的慌乱”、“孩童/中年人”等任何报年龄或复述设定的旁白定性词句！必须纯粹通过动作神态、语言机锋与心理破绽自然流露；\n"
             f"【文学风格与标杆执行指令】: 本段必须全神贯注贯彻【{STYLE_PRESETS.get(style_key, STYLE_PRESETS['free'])['name']}】文学风格（文学标杆：{STYLE_PRESETS.get(style_key, STYLE_PRESETS['free']).get('author_reference', '严肃文学小说')}），彻底抛弃千篇一律的平庸通用 AI 腔调，严格遵从该流派的句式节律、词汇冷暖与行文神韵下笔，生成 {min_words} 至 {max_words} 字的纯净小说正文："
         )
 
