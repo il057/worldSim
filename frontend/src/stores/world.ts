@@ -289,11 +289,27 @@ export const useWorldStore = defineStore('world', {
 
         // 计算本次 NPC 好感度变动 delta
         const deltas: Record<string, number> = {}
-        const updatedList = resData.story_log?.delta_snapshot?.relationship_delta?.updated_npcs || []
+        const updatedList = (resData.story_log?.delta_snapshot?.relationship_delta?.updated_npcs || []) as any[]
         for (const u of updatedList) {
+          if (u.affinity === null || u.affinity === undefined) {
+            continue
+          }
+          if (typeof u.affinity === 'string') {
+            const trimmed = u.affinity.trim()
+            if (trimmed.startsWith('+') || trimmed.startsWith('-')) {
+              const parsed = parseInt(trimmed, 10)
+              if (!isNaN(parsed)) {
+                deltas[u.npc_name] = parsed
+              }
+              continue
+            }
+          }
           const oldVal = preTickAffinityMap.get(u.npc_name)
           if (oldVal !== undefined) {
-            deltas[u.npc_name] = u.affinity - oldVal
+            const numVal = Number(u.affinity)
+            if (!isNaN(numVal)) {
+              deltas[u.npc_name] = numVal - oldVal
+            }
           }
         }
         this.lastAffinityDeltas = deltas

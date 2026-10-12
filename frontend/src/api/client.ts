@@ -394,6 +394,7 @@ export const apiClient = {
   // 系统配置
   getSystemConfig: () => api.get<any>('/characters/system/config'),
   updateSystemConfig: (payload: any) => api.post<{ message: string }>('/characters/system/config', payload),
+  saveSystemConfigs: (payload: any) => api.post<{ message: string }>('/characters/system/config', payload),
   fetchModels: (payload?: { llm_base_url?: string; llm_api_key?: string }) =>
     api.post<{ models: string[] }>('/characters/system/fetch-models', payload || {}),
 }

@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import List, Optional, Any, Dict
-from pydantic import BaseModel, Field
+from typing import List, Optional, Any, Dict, Union
+from pydantic import BaseModel, Field, field_validator
 
 
 # -----------------------------
@@ -121,11 +121,32 @@ class GoalDelta(BaseModel):
 
 class NPCRelationshipDeltaItem(BaseModel):
     npc_name: str
-    relation_type: str = "相识"
-    affinity: int = 50
-    summary: str = ""
-    is_present: bool = True
-    residence_location: Optional[str] = ""  # 常驻据点或流动状态（如 "晨曦镇学徒工坊" 或 "四海行踪不定/云游"）
+    relation_type: Optional[str] = None
+    affinity: Optional[Union[int, str]] = None  # 支持最新绝对值(int)或相对增减量(如 "+5", "-2")；为 None 时严格继承上一刻数值
+    summary: Optional[str] = None
+    is_present: Optional[bool] = None
+    residence_location: Optional[str] = None  # 常驻据点或流动状态（如 "晨曦镇学徒工坊" 或 "四海行踪不定/云游"）
+
+    @field_validator("affinity", mode="before")
+    @classmethod
+    def parse_affinity_val(cls, v):
+        if v is None or v == "":
+            return None
+        return v
+
+    @field_validator("relation_type", mode="before")
+    @classmethod
+    def parse_relation_type_val(cls, v):
+        if v is None or not str(v).strip():
+            return None
+        return str(v).strip()
+
+    @field_validator("residence_location", mode="before")
+    @classmethod
+    def parse_residence_val(cls, v):
+        if v is None or not str(v).strip():
+            return None
+        return str(v).strip()
 
 
 class RelationshipDelta(BaseModel):
@@ -222,7 +243,7 @@ class SimulationPromptConfig(BaseModel):
     min_words: Optional[int] = 500
     max_words: Optional[int] = 800
     enabled_patches: Optional[List[str]] = Field(
-        default_factory=lambda: ["plain_sketch", "living_dialogue", "anti_summary", "no_greasy", "camera_focus"]
+        default_factory=lambda: ["plain_sketch", "living_dialogue", "anti_summary", "living_grounding", "camera_focus"]
     )
     custom_style_guidance: Optional[str] = ""
     pass1_custom_prompt: Optional[str] = None

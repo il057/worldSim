@@ -369,6 +369,7 @@ def get_system_config(db: Session = Depends(get_db)):
         "enable_phone_simulation": cfg.get("enable_phone_simulation", "false").lower() == "true",
         "theme_mode": cfg.get("theme_mode", "light"),
         "theme_color": cfg.get("theme_color", "#5e72e4"),
+        "simulation_prompt_config": cfg.get("simulation_prompt_config", ""),
     }
 
 
@@ -425,6 +426,9 @@ def update_system_config(payload: Dict[str, Any], db: Session = Depends(get_db))
 
     if "theme_color" in payload and payload["theme_color"] is not None:
         updates["theme_color"] = str(payload["theme_color"]).strip()
+
+    if "simulation_prompt_config" in payload and payload["simulation_prompt_config"] is not None:
+        updates["simulation_prompt_config"] = str(payload["simulation_prompt_config"]).strip()
 
     save_system_configs(updates, db)
 

@@ -514,6 +514,13 @@ const saveConfig = () => {
   localStorage.setItem('custom_pass1_prompt', pass1Prompt.value)
   localStorage.setItem('custom_pass2_prompt', pass2Prompt.value)
 
+  // 同步持久化至后端系统配置表，确保自动化脚本与离线驱动器全局继承
+  apiClient.updateSystemConfig({
+    simulation_prompt_config: JSON.stringify(configToSave),
+  }).catch((err) => {
+    console.warn('同步保存全局提示词配置至后端失败:', err)
+  })
+
   toast.showSuccess('提示词配置已保存', '后续所有步进与推演均将按此规则执行。')
   emit('back')
 }
@@ -533,10 +540,42 @@ const resetToDefaults = () => {
   localStorage.removeItem('custom_pass1_prompt')
   localStorage.removeItem('custom_pass2_prompt')
 
+  apiClient.updateSystemConfig({
+    simulation_prompt_config: '',
+  }).catch((err) => {
+    console.warn('同步清理后端全局提示词配置失败:', err)
+  })
+
   toast.showSuccess('已恢复系统预设', '文风与演化提示词已重置为出厂默认设置。')
 }
 
 onMounted(async () => {
+  try {
+    const sysRes = await apiClient.getSystemConfig()
+    const sysCfg = sysRes?.data || sysRes
+    if (sysCfg) {
+      if (!localStorage.getItem('simulation_prompt_config') && sysCfg.simulation_prompt_config) {
+        try {
+          const parsed = JSON.parse(sysCfg.simulation_prompt_config)
+          if (parsed && typeof parsed === 'object') {
+            if (parsed.style_preset) currentStyle.value = parsed.style_preset
+            if (parsed.word_count_tier) currentTier.value = parsed.word_count_tier
+            if (parsed.min_words) minWords.value = parsed.min_words
+            if (parsed.max_words) maxWords.value = parsed.max_words
+            if (parsed.enabled_patches) enabledPatches.value = parsed.enabled_patches
+            if (parsed.custom_style_guidance) customStyleGuidance.value = parsed.custom_style_guidance
+            if (parsed.pass1_custom_prompt) pass1Prompt.value = parsed.pass1_custom_prompt
+            if (parsed.pass2_custom_prompt) pass2Prompt.value = parsed.pass2_custom_prompt
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('获取全局系统设置失败:', err)
+  }
+
   try {
     const res = await apiClient.getPromptMeta()
     const meta = res?.data || res

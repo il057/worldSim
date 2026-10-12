@@ -33,7 +33,13 @@ def get_character_lock(character_id: str) -> asyncio.Lock:
     return _character_locks[character_id]
 
 
-def _apply_tick_delta(db: Session, character: Character, state: CharacterState, delta: ArbitratorDelta) -> None:
+def _apply_tick_delta(
+    db: Session,
+    character: Character,
+    state: CharacterState,
+    delta: ArbitratorDelta,
+    has_major_incident: bool = False,
+) -> None:
     """原子更新状态看板、背包、目标以及人际关系网"""
     state.virtual_time = delta.new_virtual_time
     state.location = delta.new_location
@@ -68,6 +74,9 @@ def _apply_tick_delta(db: Session, character: Character, state: CharacterState, 
 
     # 人际关系网动态更新
     if delta.relationship_delta:
+        # 单次好感变动最大安全允许阈值：充分信任 AI 决策，单次允许在 +-10 以内自然浮动；重大事件允许至 +-30
+        max_delta_limit = 30 if has_major_incident else 10
+
         # 1. 结识新 NPC（仅限有深刻印象且有后续交集的角色）
         for n_item in delta.relationship_delta.new_npcs:
             if not n_item.npc_name or not n_item.npc_name.strip():
@@ -83,25 +92,44 @@ def _apply_tick_delta(db: Session, character: Character, state: CharacterState, 
                     final_sum = f"{raw_sum}\n\n【对该角色的态度与羁绊】：新结识的关键角色，在当前变局中留下了深刻的相处印象。"
                 else:
                     final_sum = raw_sum
+                # 新结识 NPC 初始好感度兜底与理性约束：未填默认 10；常规初见安全限幅 [-25, 30]，重大事件允许 [-40, 40]
+                new_aff = 10
+                if n_item.affinity is not None:
+                    try:
+                        raw_aff = int(n_item.affinity)
+                        new_aff = max(-40, min(40, raw_aff)) if has_major_incident else max(-25, min(30, raw_aff))
+                    except (ValueError, TypeError):
+                        new_aff = 10
+                
+                n_item.affinity = new_aff
+
                 new_rel = CharacterRelationship(
                     character_id=character.id,
                     npc_name=name_clean,
-                    relation_type=n_item.relation_type or "新结识",
-                    affinity=max(-100, min(100, n_item.affinity)),
+                    relation_type=n_item.relation_type or "相识",
+                    affinity=max(-100, min(100, new_aff)),
                     summary=final_sum,
-                    is_present=1 if n_item.is_present else 0,
+                    is_present=1 if (n_item.is_present is True or n_item.is_present is None) else 0,
                     residence_location=n_item.residence_location or delta.new_location or "",
                     last_interacted_virtual_time=delta.new_virtual_time,
                     is_archived=0,
                 )
                 db.add(new_rel)
-                logger.info(f"[NPC动态结识] 角色 {character.name} 结识了新角色: {name_clean} ({n_item.relation_type}, 常驻地: {new_rel.residence_location})")
+                logger.info(f"[NPC动态结识] 角色 {character.name} 结识了新角色: {name_clean} ({new_rel.relation_type}, 好感: {new_rel.affinity}, 常驻地: {new_rel.residence_location})")
             else:
-                existing_npc.is_present = 1 if n_item.is_present else 0
+                if n_item.is_present is not None:
+                    existing_npc.is_present = 1 if n_item.is_present else 0
                 existing_npc.last_interacted_virtual_time = delta.new_virtual_time
                 existing_npc.is_archived = 0  # 重新互动激活
-                if n_item.residence_location:
-                    existing_npc.residence_location = n_item.residence_location
+                if n_item.residence_location and n_item.residence_location.strip():
+                    existing_npc.residence_location = n_item.residence_location.strip()
+                if n_item.relation_type and n_item.relation_type.strip():
+                    existing_npc.relation_type = n_item.relation_type.strip()
+                if n_item.affinity is not None:
+                    try:
+                        existing_npc.affinity = max(-100, min(100, int(n_item.affinity)))
+                    except (ValueError, TypeError):
+                        pass
                 if n_item.summary:
                     new_s = n_item.summary.strip()
                     parts = re.split(r"【对该角色的态度与羁绊】[：:]?\s*", existing_npc.summary or "")
@@ -120,21 +148,70 @@ def _apply_tick_delta(db: Session, character: Character, state: CharacterState, 
                 CharacterRelationship.npc_name == name_clean,
             ).first()
             if existing_npc:
-                existing_npc.affinity = max(-100, min(100, u_item.affinity))
-                existing_npc.is_present = 1 if u_item.is_present else 0
+                # 【好感度更新兜底原则】：
+                # 若更新项未提供 affinity (None) 或解析失败，绝对保留上一个 tick 的既有数值，严禁粗暴重置！
+                if u_item.affinity is not None:
+                    parsed_aff = None
+                    if isinstance(u_item.affinity, str):
+                        aff_str = u_item.affinity.strip()
+                        if aff_str.startswith("+") or aff_str.startswith("-"):
+                            try:
+                                delta_val = int(aff_str)
+                                # 充分信任 AI 决策：单次变动在 +-10 以内完全放行；超过 +-10 进行安全限幅防爆
+                                if abs(delta_val) > max_delta_limit:
+                                    delta_val = max(-max_delta_limit, min(max_delta_limit, delta_val))
+                                parsed_aff = existing_npc.affinity + delta_val
+                                u_item.affinity = f"+{delta_val}" if delta_val > 0 else str(delta_val)
+                            except (ValueError, TypeError):
+                                parsed_aff = None
+                        else:
+                            try:
+                                target_val = int(aff_str)
+                                raw_diff = target_val - existing_npc.affinity
+                                if abs(raw_diff) > max_delta_limit:
+                                    step = max_delta_limit if raw_diff > 0 else -max_delta_limit
+                                    parsed_aff = existing_npc.affinity + step
+                                else:
+                                    parsed_aff = target_val
+                                u_item.affinity = parsed_aff
+                            except (ValueError, TypeError):
+                                parsed_aff = None
+                    elif isinstance(u_item.affinity, (int, float)):
+                        target_val = int(u_item.affinity)
+                        raw_diff = target_val - existing_npc.affinity
+                        if abs(raw_diff) > max_delta_limit:
+                            step = max_delta_limit if raw_diff > 0 else -max_delta_limit
+                            parsed_aff = existing_npc.affinity + step
+                        else:
+                            parsed_aff = target_val
+                        u_item.affinity = parsed_aff
+                    
+                    if parsed_aff is not None:
+                        existing_npc.affinity = max(-100, min(100, parsed_aff))
+
+                if u_item.is_present is not None:
+                    existing_npc.is_present = 1 if u_item.is_present else 0
                 existing_npc.last_interacted_virtual_time = delta.new_virtual_time
                 existing_npc.is_archived = 0
-                if u_item.residence_location:
-                    existing_npc.residence_location = u_item.residence_location
-                if u_item.summary:
+
+                if u_item.residence_location and u_item.residence_location.strip():
+                    existing_npc.residence_location = u_item.residence_location.strip()
+
+                if u_item.summary and u_item.summary.strip():
                     new_s = u_item.summary.strip()
                     parts = re.split(r"【对该角色的态度与羁绊】[：:]?\s*", existing_npc.summary or "")
                     if len(parts) >= 2 and "【对该角色的态度与羁绊】" not in new_s and "【态度】" not in new_s:
                         existing_npc.summary = f"{parts[0].strip()}\n\n【对该角色的态度与羁绊】：{new_s}"
                     else:
                         existing_npc.summary = new_s
-                if u_item.relation_type:
-                    existing_npc.relation_type = u_item.relation_type
+
+                if u_item.relation_type and u_item.relation_type.strip():
+                    new_type = u_item.relation_type.strip()
+                    # 保护深层羁绊不被泛泛的“相识”覆盖
+                    if existing_npc.relation_type and existing_npc.relation_type not in ["相识", "新结识"] and new_type in ["相识", "新结识"]:
+                        pass
+                    else:
+                        existing_npc.relation_type = new_type
 
         # 3. 处理时过境迁、久未联系的弱关系归档 (Pruning)
         for p_name in getattr(delta.relationship_delta, "pruned_npcs", []):
@@ -178,6 +255,10 @@ class SimulationService:
             if not state:
                 raise ValueError(f"未找到角色状态看板: {character_id}")
 
+            if config is None:
+                from app.services.config_service import get_simulation_prompt_config
+                config = get_simulation_prompt_config(db)
+
             try:
                 # 1. 执行 Pass 1: 理性裁决
                 delta: ArbitratorDelta = await ArbitratorService.decide_tick(
@@ -202,7 +283,13 @@ class SimulationService:
                 )
 
                 # 3. 两步推演均成功！统一原子更新状态看板、背包、目标与人际关系网
-                _apply_tick_delta(db, character, state, delta)
+                _apply_tick_delta(
+                    db,
+                    character,
+                    state,
+                    delta,
+                    has_major_incident=bool(forced_incident_prompt and forced_incident_prompt.strip()),
+                )
 
                 # 写入 story_logs
                 new_log = StoryLog(
@@ -288,6 +375,10 @@ class SimulationService:
             if not state:
                 raise ValueError(f"未找到角色状态看板: {character_id}")
 
+            if config is None:
+                from app.services.config_service import get_simulation_prompt_config
+                config = get_simulation_prompt_config(db)
+
             try:
                 yield {
                     "event": "status",
@@ -360,7 +451,13 @@ class SimulationService:
                 narrative_prose: str = await task
 
                 # 3. 提交持久化
-                _apply_tick_delta(db, character, state, delta)
+                _apply_tick_delta(
+                    db,
+                    character,
+                    state,
+                    delta,
+                    has_major_incident=bool(forced_incident_prompt and forced_incident_prompt.strip()),
+                )
                 new_log = StoryLog(
                     character_id=character.id,
                     tick_index=state.total_ticks,
@@ -539,6 +636,10 @@ class SimulationService:
             state = db.query(CharacterState).filter(CharacterState.character_id == character_id).first()
             if not character or not state:
                 raise ValueError("角色或状态不存在")
+
+            if config is None:
+                from app.services.config_service import get_simulation_prompt_config
+                config = get_simulation_prompt_config(db)
 
             try:
                 # 一次性推进完整跨度（6h 或 24h），生成唯一一条连贯充实的高保真故事切片

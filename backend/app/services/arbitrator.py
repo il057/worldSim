@@ -151,7 +151,20 @@ class ArbitratorService:
         pass1_custom = config.pass1_custom_prompt if config else None
         from app.services.memory import get_age_stage_key
         stage_key = get_age_stage_key(character, state.virtual_time)
-        system_prompt = build_arbitrator_system_prompt(pass1_custom, age_stage_key=stage_key)
+
+        enable_phone = False
+        if config and config.enable_phone_simulation is not None:
+            enable_phone = config.enable_phone_simulation
+        else:
+            from app.services.config_service import get_all_system_configs
+            sys_cfg = get_all_system_configs(db)
+            enable_phone = sys_cfg.get("enable_phone_simulation", "false").lower() == "true"
+
+        system_prompt = build_arbitrator_system_prompt(
+            custom_base_prompt=pass1_custom,
+            age_stage_key=stage_key,
+            enable_phone_simulation=enable_phone,
+        )
         goals_text = MemoryService.format_active_goals_block(state)
         relationships_text = MemoryService.format_relationships_block(db, character.id)
 
@@ -164,10 +177,32 @@ class ArbitratorService:
             )
         else:
             expected_time = cls.advance_virtual_time_str(state.virtual_time, hours_passed)
-            time_pacing_desc = (
-                f"本次推进流逝跨度: {hours_passed} 小时\n"
-                f"建议基准推移时间: {expected_time}\n"
-            )
+            if state.is_sleeping:
+                time_pacing_desc = (
+                    f"本次推进模式: 【深度休眠与苏醒裁决】（建议跨度 ~{hours_passed} 小时）\n"
+                    f"当前基准起始时间: {state.virtual_time}\n"
+                    f"建议基准推移时间: {expected_time}\n"
+                    f"【合理晨起作息律】: 角色当前处于休眠状态。若睡眠跨越夜间，应自然跨越至符合该世界观与角色作息的合理清晨（通常为 06:30 ~ 07:30 之间），严禁在凌晨 4~5 点无任何正常社会活动与人际互动的死寂真空期强行叫醒角色！根据睡眠充足度自主输出合理的 simulated_hours_passed 与 new_virtual_time。\n"
+                )
+            elif hours_passed >= 5:
+                time_pacing_desc = (
+                    f"本次推进模式: 【长跨度阶段快进】（基准流逝跨度: {hours_passed} 小时，建议推移时间: {expected_time}）\n"
+                    f"当前基准起始时间: {state.virtual_time}\n"
+                    f"【长跨度宏观压缩与作息自适应律】:\n"
+                    f"- 依据当前时段与作息客观压缩：若处于白昼正常活动时段，必须按正常作息压缩呈现大半天的关键行动、学业/工作或旅途进展，严禁将白昼清醒快进强行篡改为白天睡大觉！\n"
+                    f"- 唯有本次长跨度确实跨越了深夜（23:00 ~ 06:00），才在夜间自然结算睡眠并于合理晨间苏醒。\n"
+                )
+            elif hours_passed <= 2:
+                time_pacing_desc = (
+                    f"本次推进模式: 【阶段微步进】（参考区间约 0.5 ~ 1.5 小时 / 30 ~ 90 分钟，基准参考: {expected_time}）\n"
+                    f"当前基准起始时间: {state.virtual_time}\n"
+                    f"【时间弹性自适应】: 你无须机械切整 60 分钟，请根据主角当前事件的‘一个完整行动闭环’（如一堂 45 分钟的课程、一场 30 分钟的午餐、一次 75 分钟的工坊试制）自主裁定真实消耗时间，输出精确的小数 simulated_hours_passed (如 0.5, 0.75, 1.2 等) 与对应精确推进的新时间 new_virtual_time。\n"
+                )
+            else:
+                time_pacing_desc = (
+                    f"本次推进流逝跨度: {hours_passed} 小时\n"
+                    f"建议基准推移时间: {expected_time}\n"
+                )
 
         user_prompt = (
             f"{tier1_text}\n\n"
@@ -227,7 +262,7 @@ class ArbitratorService:
                     rest_reason=rest_data.get("rest_reason", "维持现状"),
                 ),
                 health_delta=int(data.get("health_delta", 0)),
-                stamina_delta=int(data.get("stamina_delta", -8 * sim_hours if not rest_data.get("is_sleeping") else 25)),
+                stamina_delta=int(data.get("stamina_delta", int(-3 * sim_hours) if not rest_data.get("is_sleeping") else 45)),
                 psychological_change=data.get("psychological_change", "警惕且专注"),
                 inventory_delta=InventoryDelta(
                     added=inv_data.get("added", []),

@@ -21,6 +21,7 @@ DEFAULT_CONFIGS: Dict[str, str] = {
     "realtime_tick_hours": "1",
     "enable_stream_display": "true",
     "enable_phone_simulation": "false",
+    "simulation_prompt_config": "",  # 全局持久化的推演提示词与文风配置 JSON
 }
 
 
@@ -43,6 +44,27 @@ def get_all_system_configs(db: Optional[Session] = None) -> Dict[str, str]:
     finally:
         if should_close:
             db.close()
+
+
+def get_simulation_prompt_config(db: Optional[Session] = None) -> Any:
+    """读取保存在系统配置表中的全局推演提示词与文风配置（若不存在则返回标准默认配置）"""
+    import json
+    from app.schemas import SimulationPromptConfig
+    cfg = get_all_system_configs(db)
+    raw_prompt_cfg = cfg.get("simulation_prompt_config")
+    phone_sim_enabled = cfg.get("enable_phone_simulation", "false").lower() == "true"
+
+    if raw_prompt_cfg and raw_prompt_cfg.strip():
+        try:
+            data = json.loads(raw_prompt_cfg)
+            if isinstance(data, dict):
+                data["enable_phone_simulation"] = phone_sim_enabled
+                return SimulationPromptConfig(**data)
+        except Exception as e:
+            logger.warning(f"解析全局 simulation_prompt_config 异常: {e}")
+    default_cfg = SimulationPromptConfig()
+    default_cfg.enable_phone_simulation = phone_sim_enabled
+    return default_cfg
 
 
 def save_system_configs(updates: Dict[str, Any], db: Optional[Session] = None) -> Dict[str, str]:

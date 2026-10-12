@@ -453,17 +453,43 @@ function getNpcAffinityDelta(npcName: string): number {
   if (worldStore.lastAffinityDeltas[npcName] !== undefined) {
     return worldStore.lastAffinityDeltas[npcName]
   }
-  // 2. 页面初次加载或刷新时，尝试从 timeline 历史日志推导
-  const updated = updatedNpcs.value.find((u) => u.npc_name === npcName)
-  if (!updated) return 0
+  // 2. 页面初次加载或刷新时，从最新一次推演日志的 updated_npcs 中解析
+  const updated = updatedNpcs.value.find((u) => u.npc_name === npcName) as any
+  if (!updated || updated.affinity === null || updated.affinity === undefined) {
+    return 0
+  }
+  // 2.1 若为显式相对增减量字符串 (如 "+5", "-2")，直接返回该增减值
+  if (typeof updated.affinity === 'string') {
+    const s = updated.affinity.trim()
+    if (s.startsWith('+') || s.startsWith('-')) {
+      const parsed = parseInt(s, 10)
+      return isNaN(parsed) ? 0 : parsed
+    }
+  }
+  // 2.2 若为绝对数值 (如 85)，则从更早的历史日志中提取上一个绝对好感度对比推导
+  const currentAff = Number(updated.affinity)
+  if (isNaN(currentAff)) return 0
+
   if (worldStore.timeline.length >= 2) {
     for (let i = worldStore.timeline.length - 2; i >= 0; i--) {
       const prevLog = worldStore.timeline[i]
-      const prevItem =
-        prevLog.delta_snapshot?.relationship_delta?.updated_npcs?.find((u) => u.npc_name === npcName) ||
-        prevLog.delta_snapshot?.relationship_delta?.new_npcs?.find((n) => n.npc_name === npcName)
-      if (prevItem) {
-        return updated.affinity - prevItem.affinity
+      const relDelta = prevLog.delta_snapshot?.relationship_delta
+      const prevUpdated = relDelta?.updated_npcs?.find((u: any) => u.npc_name === npcName)
+      const prevNew = relDelta?.new_npcs?.find((n: any) => n.npc_name === npcName)
+      const prevItem = prevUpdated || prevNew
+      if (prevItem && prevItem.affinity !== null && prevItem.affinity !== undefined) {
+        if (typeof prevItem.affinity === 'number') {
+          return currentAff - prevItem.affinity
+        }
+        if (typeof prevItem.affinity === 'string') {
+          const prevStr = String(prevItem.affinity).trim()
+          if (!prevStr.startsWith('+') && !prevStr.startsWith('-')) {
+            const parsedPrev = Number(prevStr)
+            if (!isNaN(parsedPrev)) {
+              return currentAff - parsedPrev
+            }
+          }
+        }
       }
     }
   }

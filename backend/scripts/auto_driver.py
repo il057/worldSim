@@ -119,16 +119,8 @@ class AutoDriverPolicy:
         根据角色当前生理看板与历史跨度决定下一步按钮动作
         返回: (action_type, action_params, decision_reason)
         """
-        # 1. 检查生理精力与休眠
-        if state.is_sleeping:
-            self.ticks_since_last_rest = 0
-            return "fast_forward_6h", {"step_type": "hour_6"}, "角色正处于休眠状态，执行深度睡眠与跨夜快进 (+6h)"
+        import random
 
-        if state.stamina <= 20:
-            self.ticks_since_last_rest = 0
-            return "fast_forward_6h", {"step_type": "hour_6"}, f"精力枯竭 (当前仅 {state.stamina}/100)，触发深度休息恢复 (+6h)"
-
-        # 2. 检查自适应作息窗口
         curr_hour = parse_hour_from_time_str(state.virtual_time)
         circadian = {}
         try:
@@ -138,25 +130,43 @@ class AutoDriverPolicy:
             pass
 
         rest_window = circadian.get("typical_rest_window", "")
-        is_in_sleep_window = False
-        if rest_window and "-" in rest_window and curr_hour is not None:
+        start_sleep_h = 23
+        wake_h = 7
+        if rest_window and "-" in rest_window:
             try:
                 parts = rest_window.split("-")
-                start_h = int(re.search(r"\d+", parts[0]).group())
-                end_h = int(re.search(r"\d+", parts[1]).group())
-                if start_h > end_h:
-                    is_in_sleep_window = curr_hour >= start_h or curr_hour < end_h
-                else:
-                    is_in_sleep_window = start_h <= curr_hour < end_h
+                start_sleep_h = int(re.search(r"\d+", parts[0]).group())
+                wake_h = int(re.search(r"\d+", parts[1]).group())
             except Exception:
                 pass
-        elif curr_hour is not None:
-            # 默认深夜休眠窗口 (23:00 ~ 06:00)
-            is_in_sleep_window = curr_hour >= 23 or curr_hour < 6
 
-        if is_in_sleep_window and self.ticks_since_last_rest >= 6:
+        # 判断是否处于夜间入睡窗口
+        is_in_sleep_window = False
+        if curr_hour is not None:
+            if start_sleep_h > wake_h:
+                is_in_sleep_window = (curr_hour >= start_sleep_h or curr_hour < wake_h)
+            else:
+                is_in_sleep_window = (start_sleep_h <= curr_hour < wake_h)
+
+        # 1. 深度休眠中 / 夜间入睡判定
+        if state.is_sleeping:
             self.ticks_since_last_rest = 0
-            return "fast_forward_6h", {"step_type": "hour_6"}, f"虚拟时间进入作息休眠窗口 ({state.virtual_time})，执行就寝休整 (+6h)"
+            return "fast_forward_6h", {"step_type": "hour_6"}, "角色正处于休眠状态，执行深度睡眠与跨夜快进（自适应晨光破晓 06:30~07:30 自然苏醒）"
+
+        # 夜间进入休眠窗口：只要处于入睡窗口且活动充实（>=3刻），无论精力剩多少均自然就寝
+        if is_in_sleep_window and (self.ticks_since_last_rest >= 3 or (curr_hour is not None and (curr_hour >= start_sleep_h or curr_hour < 6))):
+            self.ticks_since_last_rest = 0
+            return "fast_forward_6h", {"step_type": "hour_6"}, f"虚拟时间处于夜间就寝时段 ({state.virtual_time})，遵循生物钟自然洗漱就寝至次日晨光"
+
+        # 2. 白天精力偏低时的生理休整策略（严禁白昼睡大觉）
+        is_daytime = curr_hour is not None and (6 <= curr_hour < start_sleep_h)
+        if state.stamina <= 20 and is_daytime:
+            self.ticks_since_last_rest = 0
+            # 白天疲劳时，优先通过智能续写或短微步进，让角色就餐、喝茶、静坐歇脚以恢复精力
+            if random.random() < 0.7:
+                return "continue", {}, f"日间常态活动疲乏 (当前精力 {state.stamina}/100)，执行智能续写由角色在当前情境中进餐、小憩或放缓节奏自然回血"
+            else:
+                return "step", {"hours": 0.5}, f"日间短暂停顿修整 (当前精力 {state.stamina}/100)，执行 30 分钟微步进小憩与饮食补给"
 
         # 3. 检查情节平淡度与戏剧张力
         if state.location == self.last_location:
@@ -169,16 +179,20 @@ class AutoDriverPolicy:
         self.ticks_since_last_rest += 1
 
         if self.ticks_since_last_incident >= 10 and (self.consecutive_stagnant_ticks >= 6 or self.ticks_since_last_incident >= 16):
-            self.ticks_since_last_incident = 0
-            self.consecutive_stagnant_ticks = 0
-            return "trigger_incident", {}, "情节连续平淡或地点停滞过久，触发突发事件打破死水（由 AI 自主衍生变数）"
+            # 确保不在即将就寝的深夜生硬天降陨石破坏作息
+            if not is_in_sleep_window:
+                self.ticks_since_last_incident = 0
+                self.consecutive_stagnant_ticks = 0
+                return "trigger_incident", {}, "情节连续平淡或地点停滞过久，触发突发事件打破死水（由 AI 自主衍生变数）"
 
-        # 4. 常规行动推进
-        import random
+        # 4. 常规日常行动推进（弹性微步进与自由续写）
         if random.random() < 0.75:
-            return "continue", {}, "日常行动推进，执行智能续写（由大模型自主裁决时间尺度与行动步幅）"
+            return "continue", {}, "日常行动推进，执行智能续写（由大模型自主裁决 30~90 分钟弹性时间尺度与行动闭环）"
         else:
-            return "step", {"hours": 1}, "精细环境探索与互动，执行 +1h 微步进推演"
+            # 弹性微步进：30分钟、45分钟、60分钟或90分钟
+            step_choice = random.choice([0.5, 0.75, 1.0, 1.5])
+            mins = int(step_choice * 60)
+            return "step", {"hours": step_choice}, f"精细环境探索与互动，执行 +{step_choice}h ({mins}分钟) 弹性微步进推演"
 
 
 async def execute_action_with_retry(
@@ -186,21 +200,22 @@ async def execute_action_with_retry(
     character_id: str,
     action_type: str,
     action_params: Dict[str, Any],
+    config: Optional[Any] = None,
     max_retries: int = 3,
 ) -> StepTickResponse:
     """带指数退避重试的执行器"""
     for attempt in range(1, max_retries + 1):
         try:
             if action_type == "continue":
-                return await SimulationService.run_continue(db, character_id)
+                return await SimulationService.run_continue(db, character_id, config=config)
             elif action_type == "step":
-                return await SimulationService.run_step(db, character_id, hours=action_params.get("hours", 1))
+                return await SimulationService.run_step(db, character_id, hours=action_params.get("hours", 1), config=config)
             elif action_type == "fast_forward_6h":
-                return await SimulationService.fast_forward(db, character_id, step_type="hour_6")
+                return await SimulationService.fast_forward(db, character_id, step_type="hour_6", config=config)
             elif action_type == "fast_forward_24h":
-                return await SimulationService.fast_forward(db, character_id, step_type="day_1")
+                return await SimulationService.fast_forward(db, character_id, step_type="day_1", config=config)
             elif action_type == "trigger_incident":
-                return await SimulationService.trigger_inciting_incident(db, character_id)
+                return await SimulationService.trigger_inciting_incident(db, character_id, config=config)
             else:
                 raise ValueError(f"未知动作类型: {action_type}")
         except Exception as e:
@@ -365,6 +380,8 @@ async def run_auto_driver(
     character_id: Optional[str] = None,
     target_ticks: int = 100,
     output_txt: Optional[str] = None,
+    style_preset: Optional[str] = None,
+    enable_phone: Optional[bool] = None,
 ):
     init_db()
     sync_config_to_runtime()
@@ -375,6 +392,13 @@ async def run_auto_driver(
 
     db = SessionLocal()
     try:
+        from app.services.config_service import get_simulation_prompt_config
+        prompt_config = get_simulation_prompt_config(db)
+        if style_preset and style_preset.strip():
+            prompt_config.style_preset = style_preset.strip()
+        if enable_phone is not None:
+            prompt_config.enable_phone_simulation = enable_phone
+
         char = select_character(db, name_query=name, char_id=character_id)
         if not char:
             return
@@ -401,6 +425,11 @@ async def run_auto_driver(
         logger.info(f"==================================================")
         logger.info(f"[世界推演自动化驱动器启动]")
         logger.info(f"LLM 运行引擎: 模型=[{llm_client.model_name}] | 接口=[{llm_client.base_url}]")
+        logger.info(f"文学演义风格: [{prompt_config.style_preset}] | 字数档位: [{prompt_config.word_count_tier}] ({prompt_config.min_words}~{prompt_config.max_words}字)")
+        logger.info(f"手机与社交拟真: [{'已激活' if prompt_config.enable_phone_simulation else '未开启'}]")
+        logger.info(f"激活文学技法补丁 ({len(prompt_config.enabled_patches or [])}项): {prompt_config.enabled_patches}")
+        if prompt_config.custom_style_guidance:
+            logger.info(f"个性化文风指引: {prompt_config.custom_style_guidance}")
         logger.info(f"选定角色: {char.name} ({char.title or '旅者'}) | ID: {char.id}")
         logger.info(f"当前进度: Tick #{current_ticks} -> 目标刻数: Tick #{target_ticks}")
         logger.info(f"持久化记录文档: {output_txt}")
@@ -424,7 +453,9 @@ async def run_auto_driver(
 
             start_t = time.time()
             try:
-                res = await execute_action_with_retry(db, char.id, action_type, action_params)
+                res = await execute_action_with_retry(
+                    db, char.id, action_type, action_params, config=prompt_config
+                )
                 cost_t = time.time() - start_t
                 current_ticks = res.current_state.total_ticks
                 story_beat = res.story_log.plot_beat
@@ -459,6 +490,9 @@ def main():
     parser.add_argument("--character-id", type=str, default=None, help="目标角色 ID (兼容直接指定 ID)")
     parser.add_argument("--target-ticks", type=int, default=100, help="推进的目标刻数 (默认 100)")
     parser.add_argument("--output", type=str, default=None, help="持久化保存的 TXT 文档路径 (默认位于 backend/logs/)")
+    parser.add_argument("--style", type=str, default=None, help="覆盖文学演义流派预设 (如: light_witty, dark_humor, bustling_hearth, free 等)")
+    parser.add_argument("--enable-phone", dest="enable_phone", action="store_true", default=None, help="强制激活手机与社交网络拟真")
+    parser.add_argument("--disable-phone", dest="enable_phone", action="store_false", default=None, help="强制关闭手机与社交网络拟真")
     args = parser.parse_args()
 
     asyncio.run(
@@ -467,6 +501,8 @@ def main():
             character_id=args.character_id,
             target_ticks=args.target_ticks,
             output_txt=args.output,
+            style_preset=args.style,
+            enable_phone=args.enable_phone,
         )
     )
 
